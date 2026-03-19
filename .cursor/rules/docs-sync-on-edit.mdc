@@ -1,0 +1,11 @@
+---
+description: Keep /docs up to date with code edits
+alwaysApply: true
+---
+
+# Docs Sync Rules
+
+- Before making feature decisions, read `docs/product-brief.md` and stay within MVP scope.
+- When making meaningful changes, update `docs/changelog.md` with a new dated bullet describing the why/what changed.
+- When architecture or data models change, update `docs/architecture.md` to match the new design.
+- Keep documentation concise and focused on what changed or matters for future implementation.
