@@ -2,6 +2,7 @@
 
 ## 2026-03-20
 
+- Added `POST /api/leagues/join` route to join a league via invite code (auth guard, invite code lookup, duplicate membership check)
 - Added `POST /api/leagues` route to create a league (auth guard, name validation, Prisma transaction to create league + admin membership)
 
 ## 2026-03-19
