@@ -53,3 +53,30 @@ export async function POST(request: Request) {
 
   return NextResponse.json(league, { status: 201 });
 }
+
+export async function GET() {
+  const session = await getSession();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const userId = session.user.id;
+
+  const memberships = await prisma.leagueMember.findMany({
+    where: { userId },
+    include: {
+      league: {
+        include: { _count: { select: { members: true } } },
+      },
+    },
+    orderBy: { joinedAt: "desc" },
+  });
+
+  const leagues = memberships.map((m) => ({
+    ...m.league,
+    role: m.role,
+    memberCount: m.league._count.members,
+  }));
+
+  return NextResponse.json(leagues);
+}
