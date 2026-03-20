@@ -2,6 +2,7 @@
 
 ## 2026-03-20
 
+- Added `GET /api/leagues/[leagueId]/games` route to list upcoming games within a league (auth guard, membership check, filters to scheduled games with future start times)
 - Added `GET /api/leagues` route to list all leagues the current user belongs to (returns role and member count per league)
 - Set up vitest for unit testing; added tests for `GET /api/leagues` (401, empty list, populated list)
 - Added `POST /api/leagues/join` route to join a league via invite code (auth guard, invite code lookup, duplicate membership check)
