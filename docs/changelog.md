@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-20
+
+- Added `POST /api/leagues` route to create a league (auth guard, name validation, Prisma transaction to create league + admin membership)
+
 ## 2026-03-19
 
 - Project initialized with Next.js 16 (App Router), TypeScript, Tailwind CSS 4
