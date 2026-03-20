@@ -2,6 +2,8 @@
 
 ## 2026-03-20
 
+- Added `POST /api/leagues/[leagueId]/games/[gameId]/picks` route to submit or update a pick for a game (auth guard, membership check, body validation, game existence + league ownership check, deadline guard, upsert by `(userId, gameId)`); 8 Vitest unit tests covering all guard branches and happy path
+
 - Added `GET /api/leagues/[leagueId]/games` route to list upcoming games within a league (auth guard, membership check, filters to scheduled games with future start times)
 - Added `GET /api/leagues` route to list all leagues the current user belongs to (returns role and member count per league)
 - Set up vitest for unit testing; added tests for `GET /api/leagues` (401, empty list, populated list)
