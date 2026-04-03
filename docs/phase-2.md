@@ -48,12 +48,14 @@ Seed script lives at `prisma/seed.ts` and is run with `npx prisma db seed`. The 
 Seed configuration is in `prisma.config.ts` (`migrations.seed`). The script uses the same `@prisma/adapter-pg` setup as the main app client.
 
 ### 3. Slate model and Game association
-**Status: Not started**
+**Status: Complete**
 
-- Add a `Slate` model to the schema: `id`, `leagueId`, `name`, `position` (Int, for ordering), `status` (`upcoming` / `active` / `completed`)
-- Add `slateId` (String, optional during migration) to the `Game` model; make it required after backfill
-- Each league has exactly one slate with `status: "active"` at a time
-- `Game` rows within a league are now accessed through their slate
+- Add `Slate` model and `slateId` on `Game` to the schema ✓ (done in phase-2 schema migration)
+- `GET /api/leagues/[leagueId]/slates` — list slates for a league ordered by position, with game count ✓
+- `POST /api/leagues/[leagueId]/slates` — admin creates a slate (name + position); 409 on duplicate position ✓
+- `POST /api/leagues/[leagueId]/slates/[slateId]/games` — admin populates a slate with games drawn from the SportGame master schedule; enforces sport match between league and SportGame ✓
+
+New slates are created with `status: "upcoming"`. Only admins can create slates or add games to them. The sport-mismatch guard prevents adding e.g. an NBA game to an NFL league.
 
 ### 4. Sequential slate release logic
 **Status: Not started**
@@ -103,7 +105,7 @@ Note: `sport` on `League` and `slateId` on `Game` are nullable at the database l
 |---|---|---|
 | Single-sport leagues | Yes | `sport` field on `League`, validated in API, selector in create-league UI |
 | Master game schedule | Yes | `SportGame` model + seed script with NFL and NBA sample data |
-| Slates | Partially | `Slate` model + `slateId` on `Game` exist (schema done); no API or UI yet |
+| Slates | Yes | Schema done; GET/POST slates API + POST slate games API implemented |
 | Sequential slate release | No | Depends on slate API logic (not yet built) |
 | Per-slate leaderboard | Partially | Leaderboard logic is in place; needs `slateId` filter added |
 | Pick deadline enforcement | Yes | Already locks picks at `game.startTime` |

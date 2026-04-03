@@ -50,6 +50,9 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 | `POST /api/leagues/join` | required | Join via invite code |
 | `GET /api/leagues/[leagueId]/games` | member | Upcoming scheduled games |
 | `POST /api/leagues/[leagueId]/games/[gameId]/picks` | member | Upsert pick; blocked after game start time |
+| `GET /api/leagues/[leagueId]/slates` | member | List slates ordered by position with game count |
+| `POST /api/leagues/[leagueId]/slates` | admin | Create a slate (`name`, `position`) |
+| `POST /api/leagues/[leagueId]/slates/[slateId]/games` | admin | Populate slate with games from SportGame schedule (`sportGameIds[]`); enforces sport match |
 | `GET /api/leagues/[leagueId]/leaderboard` | member | Ranked members by correct picks on completed games |
 
 ### Data model (core)

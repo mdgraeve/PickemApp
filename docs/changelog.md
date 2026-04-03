@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-03 (phase 2 task 3 -- slate model and game association)
+
+- `GET /api/leagues/[leagueId]/slates` — list slates ordered by position with game count (any member)
+- `POST /api/leagues/[leagueId]/slates` — admin creates a slate with name and position; returns 409 on duplicate position
+- `POST /api/leagues/[leagueId]/slates/[slateId]/games` — admin adds games to a slate from the SportGame schedule; enforces sport match between league and SportGame; returns created games ordered by startTime
+- New slates default to status `upcoming`; only admins can create slates or populate them
+- 24 new unit tests across both routes; 57 passing total
+
 ## 2026-04-03 (phase 2 task 2 -- master game schedule seed)
 
 - Created `prisma/seed.ts` with 15 sample SportGame rows: NFL 2026 Weeks 1–2 (10 games) and NBA 2026-2027 Opening Week (5 games)
