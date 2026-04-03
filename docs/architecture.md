@@ -17,7 +17,8 @@ The app uses Next.js App Router with the `app/` directory at the project root. S
 
 Key directories:
 
-- `app/` -- routes, layouts, and pages
+- `app/api/leagues/` -- REST API routes (leagues, games, picks, leaderboard)
+- `app/leagues/` -- UI pages for league features (e.g. leaderboard)
 - `lib/` -- shared utilities, database client, auth config
 - `prisma/` -- schema and migrations
 - `public/` -- static assets
