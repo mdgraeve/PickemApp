@@ -35,12 +35,17 @@ By the end of Phase 2, the app will be able to:
 Supported sports: NFL, NBA, MLB, NHL, NCAAF, NCAAB (defined in `lib/sports.ts`). The API returns 400 with a descriptive error if an invalid sport is submitted. The create-league UI is at `/leagues/new`.
 
 ### 2. Master game schedule (SportGame model)
-**Status: Not started**
+**Status: Complete**
 
-- Add a `SportGame` model to the schema: `id`, `sport`, `homeTeam`, `awayTeam`, `scheduledAt`, `season`
-- This table is app-managed (not per-league); it is seeded or populated via an admin interface
-- Add a seed script to populate a sample schedule for at least one sport (for development/testing)
+- Add a `SportGame` model to the schema ✓ (done in phase-2 schema migration)
+- Add a seed script to populate a sample schedule for development/testing ✓
 - No public API needed yet — leagues consume this data internally when slates are built
+
+Seed script lives at `prisma/seed.ts` and is run with `npx prisma db seed`. The script is idempotent (clears all SportGame rows before inserting). Current seed data:
+- NFL 2026: 10 games across Week 1 (Sept 6–8) and Week 2 (Sept 13–15)
+- NBA 2026-2027: 5 games for Opening Week (Oct 19–21)
+
+Seed configuration is in `prisma.config.ts` (`migrations.seed`). The script uses the same `@prisma/adapter-pg` setup as the main app client.
 
 ### 3. Slate model and Game association
 **Status: Not started**
@@ -97,7 +102,7 @@ Note: `sport` on `League` and `slateId` on `Game` are nullable at the database l
 | Requirement | Supported now? | Notes |
 |---|---|---|
 | Single-sport leagues | Yes | `sport` field on `League`, validated in API, selector in create-league UI |
-| Master game schedule | Partially | `SportGame` model exists (schema done); no seed data or API yet |
+| Master game schedule | Yes | `SportGame` model + seed script with NFL and NBA sample data |
 | Slates | Partially | `Slate` model + `slateId` on `Game` exist (schema done); no API or UI yet |
 | Sequential slate release | No | Depends on slate API logic (not yet built) |
 | Per-slate leaderboard | Partially | Leaderboard logic is in place; needs `slateId` filter added |

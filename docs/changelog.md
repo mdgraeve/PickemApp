@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-04-03 (phase 2 task 2 -- master game schedule seed)
+
+- Created `prisma/seed.ts` with 15 sample SportGame rows: NFL 2026 Weeks 1–2 (10 games) and NBA 2026-2027 Opening Week (5 games)
+- Configured seed command in `prisma.config.ts` (`migrations.seed: "tsx prisma/seed.ts"`)
+- Installed `tsx` as a dev dependency for running the TypeScript seed script
+- Seed script is idempotent — clears SportGame rows before inserting, safe to re-run
+- Added `npx prisma db seed` to CLAUDE.md commands section
+- 33 tests still passing
+
 ## 2026-04-03 (phase 2 task 1 -- sport field)
 
 - `POST /api/leagues` now requires `sport`; validates against allowed list (NFL, NBA, MLB, NHL, NCAAF, NCAAB); returns 400 with descriptive error for missing or invalid sport

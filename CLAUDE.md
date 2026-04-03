@@ -17,6 +17,7 @@ npx vitest run path/to/test.ts   # Run a single test file
 
 npx prisma migrate dev --name <name>   # Create and apply a migration
 npx prisma generate                    # Regenerate Prisma client after schema changes
+npx prisma db seed                     # Seed master game schedule (SportGame table)
 npx prisma studio                      # Open Prisma Studio (DB browser)
 ```
 
