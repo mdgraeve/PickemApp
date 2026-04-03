@@ -44,7 +44,7 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 
 | Route | Auth | Notes |
 |---|---|---|
-| `POST /api/leagues` | required | Create league; creator gets `admin` role |
+| `POST /api/leagues` | required | Create league; requires `name` and `sport` (NFL/NBA/MLB/NHL/NCAAF/NCAAB); creator gets `admin` role |
 | `GET /api/leagues` | required | List leagues the current user belongs to |
 | `POST /api/leagues/join` | required | Join via invite code |
 | `GET /api/leagues/[leagueId]/games` | member | Upcoming scheduled games |

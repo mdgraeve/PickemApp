@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { SPORTS } from "@/lib/sports";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -30,12 +31,32 @@ export async function POST(request: Request) {
     );
   }
 
+  const sport =
+    typeof (body as Record<string, unknown>)?.sport === "string"
+      ? ((body as Record<string, unknown>).sport as string).trim()
+      : "";
+
+  if (!sport) {
+    return NextResponse.json(
+      { error: "Sport is required" },
+      { status: 400 },
+    );
+  }
+
+  if (!SPORTS.includes(sport as (typeof SPORTS)[number])) {
+    return NextResponse.json(
+      { error: `Sport must be one of: ${SPORTS.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
   const userId = session.user.id;
 
   const league = await prisma.$transaction(async (tx) => {
     const created = await tx.league.create({
       data: {
         name,
+        sport,
         createdById: userId,
       },
     });

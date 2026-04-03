@@ -73,6 +73,7 @@ model User {
 model League {
   id          String   @id @default(cuid())
   name        String
+  sport       String?
   inviteCode  String   @unique @default(cuid())
   createdById String
   createdAt   DateTime @default(now())
@@ -81,6 +82,7 @@ model League {
   createdBy User           @relation("LeagueCreator", fields: [createdById], references: [id])
   members   LeagueMember[]
   games     Game[]
+  slates    Slate[]
 
   @@index([createdById])
 }
@@ -99,9 +101,46 @@ model LeagueMember {
   @@index([leagueId])
 }
 
+// SportGame holds the app-managed canonical schedule per sport.
+// Leagues draw from this table when slates are built; games are not
+// created per-league from scratch.
+model SportGame {
+  id          String   @id @default(cuid())
+  sport       String
+  homeTeam    String
+  awayTeam    String
+  scheduledAt DateTime
+  season      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sport])
+  @@index([scheduledAt])
+}
+
+// Slate groups games within a league into a named round.
+// Only one slate per league has status "active" at a time.
+// status: "upcoming" | "active" | "completed"
+model Slate {
+  id        String   @id @default(cuid())
+  leagueId  String
+  name      String
+  position  Int
+  status    String   @default("upcoming")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  games  Game[]
+
+  @@unique([leagueId, position])
+  @@index([leagueId])
+}
+
 model Game {
   id        String   @id @default(cuid())
   leagueId  String
+  slateId   String?
   homeTeam  String
   awayTeam  String
   startTime DateTime
@@ -111,11 +150,13 @@ model Game {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  league League  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  slate  Slate?  @relation(fields: [slateId], references: [id])
   picks  Pick[]
 
   @@index([leagueId])
   @@index([startTime])
+  @@index([slateId])
 }
 
 model Pick {

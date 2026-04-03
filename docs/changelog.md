@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-04-03 (phase 2 task 1 -- sport field)
+
+- `POST /api/leagues` now requires `sport`; validates against allowed list (NFL, NBA, MLB, NHL, NCAAF, NCAAB); returns 400 with descriptive error for missing or invalid sport
+- `GET /api/leagues` response now includes `sport` on each league (no query change needed — already spread from league object)
+- Created `lib/sports.ts` as shared source of truth for the allowed sports list
+- Created create-league UI at `/leagues/new` with league name input and sport selector
+- Added 7 new unit tests for POST (401, missing name, missing sport, invalid sport, success, sport passed to DB, all valid sports accepted); updated GET fixture data to include `sport`
+- 33 tests passing total
+
+## 2026-04-03 (phase 2 schema migrations)
+
+- Applied migration `20260403203730_phase_2_schema`: added `sport` (nullable String) to `League`; added `SportGame` model for app-managed canonical game schedules per sport; added `Slate` model (`leagueId`, `name`, `position`, `status`); added `slateId` (nullable FK) to `Game`
+- All changes are additive — no existing data structures removed or renamed
+- All 26 existing tests continue to pass
+
+## 2026-04-03 (phase 2 planning)
+
+- Defined Phase 2 goals and tasks in docs/phase-2.md
+- Clarified that leagues are single-sport only (no mixed-sport leagues)
+- Defined slate release rules: only one slate active per league at a time; next slate not released until current slate is fully complete
+- Defined that each sport will have a default master game schedule that leagues draw from; per-league customization is a future Phase 3 enhancement
+- Updated product-brief.md and roadmap.md to reflect these requirements
+
 ## 2026-04-03
 
 - Added `GET /api/leagues/[leagueId]/leaderboard` route to rank league members by correct picks on completed games (auth guard, membership check, dense ranking, tie-game handling, zero-pick members included); 11 Vitest unit tests covering all guard branches, scoring logic, and edge cases
