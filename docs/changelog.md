@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-04-03 (phase 2 task 6 -- per-slate leaderboard)
+
+- `GET /api/leagues/[leagueId]/leaderboard` now accepts optional `?slateId=` query param; validates slate belongs to league (404 if not); filters completed games to that slate; overall behavior unchanged when omitted
+- Leaderboard UI updated with a slate selector dropdown (Overall + each slate); active slates labelled "(in progress)"; switching slates re-fetches without reload
+- 5 new unit tests for slateId path; 81 total passing
+- Phase 2 is now complete
+
 ## 2026-04-03 (phase 2 tasks 4 & 5 -- sequential slate release + games API)
 
 - `POST /api/leagues/[leagueId]/slates` now auto-activates the new slate when no active slate exists for the league; otherwise creates as `upcoming`

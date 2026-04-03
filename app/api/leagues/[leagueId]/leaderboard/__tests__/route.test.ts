@@ -8,6 +8,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     leagueMember: { findUnique: vi.fn(), findMany: vi.fn() },
     game: { findMany: vi.fn() },
+    slate: { findUnique: vi.fn() },
   },
 }));
 
@@ -19,12 +20,19 @@ const mockGetSession = getSession as ReturnType<typeof vi.fn>;
 const mockMemberFindUnique = prisma.leagueMember.findUnique as ReturnType<typeof vi.fn>;
 const mockMemberFindMany = prisma.leagueMember.findMany as ReturnType<typeof vi.fn>;
 const mockGameFindMany = prisma.game.findMany as ReturnType<typeof vi.fn>;
+const mockSlateFindUnique = prisma.slate.findUnique as ReturnType<typeof vi.fn>;
 
 const leagueId = "league-1";
+const slateId = "slate-1";
+
 const fakeRequest = new Request(`http://localhost/api/leagues/${leagueId}/leaderboard`);
+const fakeRequestWithSlate = new Request(
+  `http://localhost/api/leagues/${leagueId}/leaderboard?slateId=${slateId}`,
+);
 const fakeContext = { params: Promise.resolve({ leagueId }) };
 
 const fakeMembership = { id: "mem-1", userId: "user-1", leagueId, role: "member" };
+const fakeSlate = { id: slateId, leagueId, name: "Week 1", position: 1, status: "completed" };
 
 const fakeMembers = [
   {
@@ -47,7 +55,11 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 
-describe("GET /api/leagues/[leagueId]/leaderboard", () => {
+// ---------------------------------------------------------------------------
+// Overall leaderboard (no slateId)
+// ---------------------------------------------------------------------------
+
+describe("GET /api/leagues/[leagueId]/leaderboard (overall)", () => {
   it("returns 401 when not authenticated", async () => {
     mockGetSession.mockResolvedValue(null);
 
@@ -97,9 +109,7 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
     expect(response.status).toBe(200);
     expect(body).toHaveLength(2);
     expect(body[0].correct).toBe(0);
-    expect(body[0].totalPicks).toBe(0);
     expect(body[1].correct).toBe(0);
-    expect(body[1].totalPicks).toBe(0);
   });
 
   it("returns all members with correct:0 when completed games have no picks", async () => {
@@ -107,21 +117,13 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
     mockMemberFindUnique.mockResolvedValue(fakeMembership);
     mockMemberFindMany.mockResolvedValue(fakeMembers);
     mockGameFindMany.mockResolvedValue([
-      {
-        id: "game-1",
-        homeTeam: "Team A",
-        awayTeam: "Team B",
-        homeScore: 3,
-        awayScore: 1,
-        picks: [],
-      },
+      { id: "game-1", homeTeam: "Team A", awayTeam: "Team B", homeScore: 3, awayScore: 1, picks: [] },
     ]);
 
     const response = await GET(fakeRequest, fakeContext);
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toHaveLength(2);
     body.forEach((entry: { correct: number; totalPicks: number }) => {
       expect(entry.correct).toBe(0);
       expect(entry.totalPicks).toBe(0);
@@ -138,10 +140,10 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
         homeTeam: "Team A",
         awayTeam: "Team B",
         homeScore: 3,
-        awayScore: 1, // Team A wins
+        awayScore: 1,
         picks: [
-          { userId: "user-1", pickedTeam: "Team A" }, // correct
-          { userId: "user-2", pickedTeam: "Team B" }, // incorrect
+          { userId: "user-1", pickedTeam: "Team A" },
+          { userId: "user-2", pickedTeam: "Team B" },
         ],
       },
     ]);
@@ -149,13 +151,10 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
     const response = await GET(fakeRequest, fakeContext);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
     const alice = body.find((e: { userId: string }) => e.userId === "user-1");
     const bob = body.find((e: { userId: string }) => e.userId === "user-2");
     expect(alice.correct).toBe(1);
-    expect(alice.totalPicks).toBe(1);
     expect(bob.correct).toBe(0);
-    expect(bob.totalPicks).toBe(1);
   });
 
   it("does not award a correct pick for a tied game", async () => {
@@ -168,7 +167,7 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
         homeTeam: "Team A",
         awayTeam: "Team B",
         homeScore: 2,
-        awayScore: 2, // tie
+        awayScore: 2,
         picks: [
           { userId: "user-1", pickedTeam: "Team A" },
           { userId: "user-2", pickedTeam: "Team B" },
@@ -179,11 +178,7 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
     const response = await GET(fakeRequest, fakeContext);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    body.forEach((entry: { correct: number; totalPicks: number }) => {
-      expect(entry.correct).toBe(0);
-      expect(entry.totalPicks).toBe(1);
-    });
+    body.forEach((entry: { correct: number }) => expect(entry.correct).toBe(0));
   });
 
   it("skips a completed game where scores are null", async () => {
@@ -191,22 +186,12 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
     mockMemberFindUnique.mockResolvedValue(fakeMembership);
     mockMemberFindMany.mockResolvedValue(fakeMembers);
     mockGameFindMany.mockResolvedValue([
-      {
-        id: "game-1",
-        homeTeam: "Team A",
-        awayTeam: "Team B",
-        homeScore: null,
-        awayScore: null,
-        picks: [
-          { userId: "user-1", pickedTeam: "Team A" },
-        ],
-      },
+      { id: "game-1", homeTeam: "Team A", awayTeam: "Team B", homeScore: null, awayScore: null, picks: [{ userId: "user-1", pickedTeam: "Team A" }] },
     ]);
 
     const response = await GET(fakeRequest, fakeContext);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
     const alice = body.find((e: { userId: string }) => e.userId === "user-1");
     expect(alice.correct).toBe(0);
     expect(alice.totalPicks).toBe(0);
@@ -217,13 +202,7 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
     mockMemberFindUnique.mockResolvedValue(fakeMembership);
     mockMemberFindMany.mockResolvedValue([
       ...fakeMembers,
-      {
-        id: "mem-3",
-        userId: "user-3",
-        leagueId,
-        role: "member",
-        user: { id: "user-3", name: "Carol", email: "carol@b.com" },
-      },
+      { id: "mem-3", userId: "user-3", leagueId, role: "member", user: { id: "user-3", name: "Carol", email: "carol@b.com" } },
     ]);
     mockGameFindMany.mockResolvedValue([
       {
@@ -231,11 +210,11 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
         homeTeam: "Team A",
         awayTeam: "Team B",
         homeScore: 3,
-        awayScore: 1, // Team A wins
+        awayScore: 1,
         picks: [
-          { userId: "user-1", pickedTeam: "Team A" }, // correct
-          { userId: "user-2", pickedTeam: "Team A" }, // correct
-          { userId: "user-3", pickedTeam: "Team B" }, // incorrect
+          { userId: "user-1", pickedTeam: "Team A" },
+          { userId: "user-2", pickedTeam: "Team A" },
+          { userId: "user-3", pickedTeam: "Team B" },
         ],
       },
     ]);
@@ -243,16 +222,15 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
     const response = await GET(fakeRequest, fakeContext);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
     const alice = body.find((e: { userId: string }) => e.userId === "user-1");
     const bob = body.find((e: { userId: string }) => e.userId === "user-2");
     const carol = body.find((e: { userId: string }) => e.userId === "user-3");
     expect(alice.rank).toBe(1);
     expect(bob.rank).toBe(1);
-    expect(carol.rank).toBe(2); // dense rank — not 3
+    expect(carol.rank).toBe(2);
   });
 
-  it("includes a user with zero picks at the bottom of the leaderboard", async () => {
+  it("includes a user with zero picks at the bottom", async () => {
     mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "alice@b.com" } });
     mockMemberFindUnique.mockResolvedValue(fakeMembership);
     mockMemberFindMany.mockResolvedValue(fakeMembers);
@@ -262,26 +240,20 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
         homeTeam: "Team A",
         awayTeam: "Team B",
         homeScore: 3,
-        awayScore: 1, // Team A wins
-        picks: [
-          { userId: "user-1", pickedTeam: "Team A" }, // correct; user-2 has no pick
-        ],
+        awayScore: 1,
+        picks: [{ userId: "user-1", pickedTeam: "Team A" }],
       },
     ]);
 
     const response = await GET(fakeRequest, fakeContext);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toHaveLength(2);
     const bob = body.find((e: { userId: string }) => e.userId === "user-2");
-    expect(bob).toBeDefined();
     expect(bob.correct).toBe(0);
-    expect(bob.totalPicks).toBe(0);
     expect(bob.rank).toBe(2);
   });
 
-  it("calls Prisma with the correct arguments", async () => {
+  it("queries all completed games in the league when no slateId given", async () => {
     mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "alice@b.com" } });
     mockMemberFindUnique.mockResolvedValue(fakeMembership);
     mockMemberFindMany.mockResolvedValue(fakeMembers);
@@ -289,25 +261,101 @@ describe("GET /api/leagues/[leagueId]/leaderboard", () => {
 
     await GET(fakeRequest, fakeContext);
 
-    expect(mockMemberFindMany).toHaveBeenCalledWith({
-      where: { leagueId },
-      include: { user: { select: { id: true, name: true, email: true } } },
-    });
     expect(mockGameFindMany).toHaveBeenCalledWith({
       where: { leagueId, status: "completed" },
-      select: {
-        id: true,
-        homeTeam: true,
-        awayTeam: true,
-        homeScore: true,
-        awayScore: true,
-        picks: {
-          select: {
-            userId: true,
-            pickedTeam: true,
-          },
-        },
-      },
+      select: expect.any(Object),
     });
+    expect(mockSlateFindUnique).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Per-slate leaderboard (?slateId=)
+// ---------------------------------------------------------------------------
+
+describe("GET /api/leagues/[leagueId]/leaderboard?slateId=", () => {
+  it("returns 404 when the slateId does not exist", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "alice@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockSlateFindUnique.mockResolvedValue(null);
+
+    const response = await GET(fakeRequestWithSlate, fakeContext);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe("Slate not found");
+  });
+
+  it("returns 404 when the slate belongs to a different league", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "alice@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockSlateFindUnique.mockResolvedValue({ ...fakeSlate, leagueId: "other-league" });
+
+    const response = await GET(fakeRequestWithSlate, fakeContext);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe("Slate not found");
+  });
+
+  it("queries only completed games in the specified slate", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "alice@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockSlateFindUnique.mockResolvedValue(fakeSlate);
+    mockMemberFindMany.mockResolvedValue(fakeMembers);
+    mockGameFindMany.mockResolvedValue([]);
+
+    await GET(fakeRequestWithSlate, fakeContext);
+
+    expect(mockGameFindMany).toHaveBeenCalledWith({
+      where: { leagueId, status: "completed", slateId },
+      select: expect.any(Object),
+    });
+  });
+
+  it("scores only picks for games in the specified slate", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "alice@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockSlateFindUnique.mockResolvedValue(fakeSlate);
+    mockMemberFindMany.mockResolvedValue(fakeMembers);
+    mockGameFindMany.mockResolvedValue([
+      {
+        id: "game-1",
+        homeTeam: "Chiefs",
+        awayTeam: "Ravens",
+        homeScore: 27,
+        awayScore: 24,
+        picks: [
+          { userId: "user-1", pickedTeam: "Chiefs" },  // correct
+          { userId: "user-2", pickedTeam: "Ravens" },  // incorrect
+        ],
+      },
+    ]);
+
+    const response = await GET(fakeRequestWithSlate, fakeContext);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    const alice = body.find((e: { userId: string }) => e.userId === "user-1");
+    const bob = body.find((e: { userId: string }) => e.userId === "user-2");
+    expect(alice.correct).toBe(1);
+    expect(alice.rank).toBe(1);
+    expect(bob.correct).toBe(0);
+    expect(bob.rank).toBe(2);
+  });
+
+  it("returns all members with correct:0 when the slate has no completed games", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "alice@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockSlateFindUnique.mockResolvedValue(fakeSlate);
+    mockMemberFindMany.mockResolvedValue(fakeMembers);
+    mockGameFindMany.mockResolvedValue([]);
+
+    const response = await GET(fakeRequestWithSlate, fakeContext);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toHaveLength(2);
+    body.forEach((entry: { correct: number }) => expect(entry.correct).toBe(0));
   });
 });

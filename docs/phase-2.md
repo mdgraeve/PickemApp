@@ -1,6 +1,6 @@
 # Phase 2 -- Slates & Sports
 
-**Status: In progress**
+**Status: Complete**
 
 Phase 2 introduces the concept of sports and slates. By the end of this phase, leagues will be tied to a single sport, games will be drawn from a sport-level master schedule, and those games will be grouped into sequentially-released slates so that only one round of games is active at a time.
 
@@ -73,12 +73,12 @@ New slates are created with `status: "upcoming"`. Only admins can create slates 
 - `GET /api/leagues/[leagueId]/slates/[slateId]/games` — any member can retrieve games for a specific slate by ID, with slate metadata; useful for viewing completed slate history ✓
 
 ### 6. Per-slate leaderboard
-**Status: Not started**
+**Status: Complete**
 
-- Update `GET /api/leagues/[leagueId]/leaderboard` to accept an optional `?slateId=` query parameter
-- When `slateId` is provided, score only picks for games in that slate
-- When omitted, score picks across all completed slates (existing overall behavior)
-- Update the leaderboard UI to show a slate selector
+- `GET /api/leagues/[leagueId]/leaderboard` now accepts an optional `?slateId=` query parameter ✓
+- When `slateId` is provided: validates it belongs to this league (404 if not), then filters completed games to that slate only ✓
+- When omitted: scores across all completed games in the league (existing overall behavior preserved) ✓
+- Leaderboard UI updated with a slate selector dropdown; "Overall" is the default; active slates are labelled "(in progress)"; switching slates re-fetches without a page reload ✓
 
 ---
 
@@ -107,6 +107,6 @@ Note: `sport` on `League` and `slateId` on `Game` are nullable at the database l
 | Master game schedule | Yes | `SportGame` model + seed script with NFL and NBA sample data |
 | Slates | Yes | Schema done; GET/POST slates API + POST slate games API implemented |
 | Sequential slate release | Yes | First slate auto-activates; PATCH game result triggers promotion |
-| Per-slate leaderboard | Partially | Leaderboard logic is in place; needs `slateId` filter added |
+| Per-slate leaderboard | Yes | `?slateId=` filter on leaderboard API; slate selector in UI |
 | Pick deadline enforcement | Yes | Already locks picks at `game.startTime` |
 | Overall leaderboard | Yes | Fully implemented |

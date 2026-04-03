@@ -55,7 +55,7 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 | `GET /api/leagues/[leagueId]/slates/[slateId]/games` | member | Games for a specific slate with slate metadata; for historical view |
 | `POST /api/leagues/[leagueId]/slates` | admin | Create a slate (`name`, `position`) |
 | `POST /api/leagues/[leagueId]/slates/[slateId]/games` | admin | Populate slate with games from SportGame schedule (`sportGameIds[]`); enforces sport match |
-| `GET /api/leagues/[leagueId]/leaderboard` | member | Ranked members by correct picks on completed games |
+| `GET /api/leagues/[leagueId]/leaderboard` | member | Ranked members by correct picks; optional `?slateId=` to scope to a single slate |
 
 ### Data model (core)
 - **User** — email-based identity

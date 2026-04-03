@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const session = await getSession();
@@ -22,13 +22,27 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const slateId = searchParams.get("slateId");
+
+  if (slateId) {
+    const slate = await prisma.slate.findUnique({ where: { id: slateId } });
+    if (!slate || slate.leagueId !== leagueId) {
+      return NextResponse.json({ error: "Slate not found" }, { status: 404 });
+    }
+  }
+
+  const gameFilter = slateId
+    ? { leagueId, status: "completed", slateId }
+    : { leagueId, status: "completed" };
+
   const [members, completedGames] = await Promise.all([
     prisma.leagueMember.findMany({
       where: { leagueId },
       include: { user: { select: { id: true, name: true, email: true } } },
     }),
     prisma.game.findMany({
-      where: { leagueId, status: "completed" },
+      where: gameFilter,
       select: {
         id: true,
         homeTeam: true,
