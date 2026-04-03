@@ -97,9 +97,15 @@ export async function POST(
     );
   }
 
+  // Auto-activate this slate if no active slate exists for the league yet.
+  const activeSlate = await prisma.slate.findFirst({
+    where: { leagueId, status: "active" },
+  });
+  const status = activeSlate ? "upcoming" : "active";
+
   try {
     const slate = await prisma.slate.create({
-      data: { leagueId, name, position },
+      data: { leagueId, name, position, status },
     });
     return NextResponse.json(slate, { status: 201 });
   } catch (err: unknown) {

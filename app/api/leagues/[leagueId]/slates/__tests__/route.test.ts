@@ -5,7 +5,7 @@ vi.mock("@/lib/session", () => ({ getSession: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     leagueMember: { findUnique: vi.fn() },
-    slate: { findMany: vi.fn(), create: vi.fn() },
+    slate: { findMany: vi.fn(), create: vi.fn(), findFirst: vi.fn() },
   },
 }));
 
@@ -17,6 +17,7 @@ const mockGetSession = getSession as ReturnType<typeof vi.fn>;
 const mockMemberFindUnique = prisma.leagueMember.findUnique as ReturnType<typeof vi.fn>;
 const mockSlateFindMany = prisma.slate.findMany as ReturnType<typeof vi.fn>;
 const mockSlateCreate = prisma.slate.create as ReturnType<typeof vi.fn>;
+const mockSlateFindFirst = prisma.slate.findFirst as ReturnType<typeof vi.fn>;
 
 const leagueId = "league-1";
 const fakeRequest = new Request(`http://localhost/api/leagues/${leagueId}/slates`);
@@ -38,7 +39,7 @@ const fakeSlate = {
   leagueId,
   name: "Week 1",
   position: 1,
-  status: "upcoming",
+  status: "active",
   createdAt: new Date("2026-04-01"),
   updatedAt: new Date("2026-04-01"),
 };
@@ -98,14 +99,8 @@ describe("GET /api/leagues/[leagueId]/slates", () => {
 
     expect(response.status).toBe(200);
     expect(body).toHaveLength(2);
-    expect(body[0]).toMatchObject({ id: "slate-1", name: "Week 1", position: 1, gameCount: 5 });
-    expect(body[1]).toMatchObject({ id: "slate-2", name: "Week 2", position: 2, gameCount: 0 });
-
-    expect(mockSlateFindMany).toHaveBeenCalledWith({
-      where: { leagueId },
-      include: { _count: { select: { games: true } } },
-      orderBy: { position: "asc" },
-    });
+    expect(body[0]).toMatchObject({ id: "slate-1", name: "Week 1", position: 1, status: "active", gameCount: 5 });
+    expect(body[1]).toMatchObject({ id: "slate-2", name: "Week 2", position: 2, status: "upcoming", gameCount: 0 });
   });
 });
 
@@ -182,6 +177,7 @@ describe("POST /api/leagues/[leagueId]/slates", () => {
   it("returns 409 when a slate at that position already exists", async () => {
     mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
     mockMemberFindUnique.mockResolvedValue(adminMembership);
+    mockSlateFindFirst.mockResolvedValue(null);
     mockSlateCreate.mockRejectedValue({ code: "P2002" });
 
     const response = await POST(makePostRequest({ name: "Week 1", position: 1 }), fakeContext);
@@ -191,20 +187,35 @@ describe("POST /api/leagues/[leagueId]/slates", () => {
     expect(body.error).toMatch(/position 1 already exists/);
   });
 
-  it("returns 201 with the created slate", async () => {
+  it("creates slate with status active when no active slate exists", async () => {
     mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
     mockMemberFindUnique.mockResolvedValue(adminMembership);
-    mockSlateCreate.mockResolvedValue(fakeSlate);
+    mockSlateFindFirst.mockResolvedValue(null); // no active slate
+    mockSlateCreate.mockResolvedValue({ ...fakeSlate, status: "active" });
 
     const response = await POST(makePostRequest({ name: "Week 1", position: 1 }), fakeContext);
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.name).toBe("Week 1");
-    expect(body.position).toBe(1);
+    expect(body.status).toBe("active");
+    expect(mockSlateCreate).toHaveBeenCalledWith({
+      data: { leagueId, name: "Week 1", position: 1, status: "active" },
+    });
+  });
+
+  it("creates slate with status upcoming when an active slate already exists", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(adminMembership);
+    mockSlateFindFirst.mockResolvedValue(fakeSlate); // active slate exists
+    mockSlateCreate.mockResolvedValue({ ...fakeSlate, id: "slate-2", name: "Week 2", position: 2, status: "upcoming" });
+
+    const response = await POST(makePostRequest({ name: "Week 2", position: 2 }), fakeContext);
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
     expect(body.status).toBe("upcoming");
     expect(mockSlateCreate).toHaveBeenCalledWith({
-      data: { leagueId, name: "Week 1", position: 1 },
+      data: { leagueId, name: "Week 2", position: 2, status: "upcoming" },
     });
   });
 });

@@ -48,9 +48,11 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 | `POST /api/leagues` | required | Create league; requires `name` and `sport` (NFL/NBA/MLB/NHL/NCAAF/NCAAB); creator gets `admin` role |
 | `GET /api/leagues` | required | List leagues the current user belongs to |
 | `POST /api/leagues/join` | required | Join via invite code |
-| `GET /api/leagues/[leagueId]/games` | member | Upcoming scheduled games |
+| `GET /api/leagues/[leagueId]/games` | member | Games in the active slate; returns `{ slate, games }` — `slate` is null if no active slate |
+| `PATCH /api/leagues/[leagueId]/games/[gameId]` | admin | Record game result (`homeScore`, `awayScore`); triggers slate promotion if all slate games complete |
 | `POST /api/leagues/[leagueId]/games/[gameId]/picks` | member | Upsert pick; blocked after game start time |
 | `GET /api/leagues/[leagueId]/slates` | member | List slates ordered by position with game count |
+| `GET /api/leagues/[leagueId]/slates/[slateId]/games` | member | Games for a specific slate with slate metadata; for historical view |
 | `POST /api/leagues/[leagueId]/slates` | admin | Create a slate (`name`, `position`) |
 | `POST /api/leagues/[leagueId]/slates/[slateId]/games` | admin | Populate slate with games from SportGame schedule (`sportGameIds[]`); enforces sport match |
 | `GET /api/leagues/[leagueId]/leaderboard` | member | Ranked members by correct picks on completed games |

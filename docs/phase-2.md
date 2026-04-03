@@ -58,19 +58,19 @@ Seed configuration is in `prisma.config.ts` (`migrations.seed`). The script uses
 New slates are created with `status: "upcoming"`. Only admins can create slates or add games to them. The sport-mismatch guard prevents adding e.g. an NBA game to an NFL league.
 
 ### 4. Sequential slate release logic
-**Status: Not started**
+**Status: Complete**
 
-- A slate becomes `active` when all games in the previous slate have `status: "completed"` (i.e. homeScore and awayScore are set)
-- The first slate for a league is activated immediately when the league is created (or when the first slate is created)
-- Add a mechanism to detect when a slate is fully complete and promote the next `upcoming` slate to `active` -- this can be triggered when a game result is recorded
-- Only the active slate's games are returned by `GET /api/leagues/[leagueId]/games`
+- `POST /api/leagues/[leagueId]/slates` auto-activates the new slate if no active slate exists for that league; otherwise creates it as `upcoming` ✓
+- `PATCH /api/leagues/[leagueId]/games/[gameId]` — admin records a game result (`homeScore`, `awayScore`); sets game `status` to `completed`; triggers slate promotion check ✓
+- Slate promotion: after each game result, if no incomplete games remain in the slate, the slate is marked `completed` and the next `upcoming` slate (by position) is activated automatically ✓
+- Re-scoring an already-completed game updates the scores without re-triggering promotion ✓
+- Games without a `slateId` (pre-Phase-2 data) are updated without triggering any slate logic ✓
 
 ### 5. Update games API for slates
-**Status: Not started**
+**Status: Complete**
 
-- Update `GET /api/leagues/[leagueId]/games` to return games for the active slate only
-- Add `GET /api/leagues/[leagueId]/slates/[slateId]/games` for accessing a specific slate's games (used for leaderboard history)
-- Include slate metadata (name, status, position) in the games response
+- `GET /api/leagues/[leagueId]/games` now returns games for the active slate only, with slate metadata (`{ slate, games }`); returns `{ slate: null, games: [] }` when no active slate exists ✓
+- `GET /api/leagues/[leagueId]/slates/[slateId]/games` — any member can retrieve games for a specific slate by ID, with slate metadata; useful for viewing completed slate history ✓
 
 ### 6. Per-slate leaderboard
 **Status: Not started**
@@ -106,7 +106,7 @@ Note: `sport` on `League` and `slateId` on `Game` are nullable at the database l
 | Single-sport leagues | Yes | `sport` field on `League`, validated in API, selector in create-league UI |
 | Master game schedule | Yes | `SportGame` model + seed script with NFL and NBA sample data |
 | Slates | Yes | Schema done; GET/POST slates API + POST slate games API implemented |
-| Sequential slate release | No | Depends on slate API logic (not yet built) |
+| Sequential slate release | Yes | First slate auto-activates; PATCH game result triggers promotion |
 | Per-slate leaderboard | Partially | Leaderboard logic is in place; needs `slateId` filter added |
 | Pick deadline enforcement | Yes | Already locks picks at `game.startTime` |
 | Overall leaderboard | Yes | Fully implemented |

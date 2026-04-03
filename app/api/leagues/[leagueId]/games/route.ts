@@ -22,14 +22,26 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const activeSlate = await prisma.slate.findFirst({
+    where: { leagueId, status: "active" },
+  });
+
+  if (!activeSlate) {
+    return NextResponse.json({ slate: null, games: [] });
+  }
+
   const games = await prisma.game.findMany({
-    where: {
-      leagueId,
-      status: "scheduled",
-      startTime: { gt: new Date() },
-    },
+    where: { slateId: activeSlate.id },
     orderBy: { startTime: "asc" },
   });
 
-  return NextResponse.json(games);
+  return NextResponse.json({
+    slate: {
+      id: activeSlate.id,
+      name: activeSlate.name,
+      position: activeSlate.position,
+      status: activeSlate.status,
+    },
+    games,
+  });
 }

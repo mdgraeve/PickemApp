@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-03 (phase 2 tasks 4 & 5 -- sequential slate release + games API)
+
+- `POST /api/leagues/[leagueId]/slates` now auto-activates the new slate when no active slate exists for the league; otherwise creates as `upcoming`
+- `PATCH /api/leagues/[leagueId]/games/[gameId]` — admin records game result (homeScore, awayScore); marks game completed; triggers slate promotion: if all slate games complete, slate → completed and next upcoming slate → active
+- `GET /api/leagues/[leagueId]/games` updated to return `{ slate, games }` for the active slate only (breaking change from flat array); returns `{ slate: null, games: [] }` when no active slate
+- `GET /api/leagues/[leagueId]/slates/[slateId]/games` added — any member can view games for a specific slate with metadata (for slate history)
+- 19 new unit tests; 76 passing total
+
 ## 2026-04-03 (phase 2 task 3 -- slate model and game association)
 
 - `GET /api/leagues/[leagueId]/slates` — list slates ordered by position with game count (any member)
