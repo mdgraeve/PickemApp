@@ -34,11 +34,13 @@ npx prisma studio                      # Open Prisma Studio (DB browser)
 
 ### Key directories
 - `app/api/` — REST API routes (all JSON, Next.js route handlers)
-- `app/(pages)/` — UI pages: `/login`, `/login/verify`, `/` (dashboard)
-- `lib/` — Shared utilities: `db.ts` (Prisma singleton), `auth.ts` (NextAuth config), `session.ts` (auth helpers)
+- `app/leagues/` — UI pages for league features (leaderboard, create league)
+- `app/login/` — Auth pages (sign-in, verify)
+- `lib/` — Shared utilities: `db.ts` (Prisma singleton), `auth.ts` (NextAuth config), `session.ts` (auth helpers), `sports.ts` (allowed sports list)
 - `prisma/schema.prisma` — Source of truth for the data model
+- `prisma/seed.ts` — Seeds `SportGame` master schedule (run with `npx prisma db seed`)
 - `lib/generated/prisma/` — Auto-generated Prisma client (do not edit manually)
-- `docs/` — Architecture, changelog, product brief, roadmap
+- `docs/` — Architecture, changelog, product brief, roadmap, phase-2 plan
 
 ### API structure
 All protected routes guard with `getSession()` / `requireSession()` from `lib/session.ts`. League-scoped routes verify `leagueMember` membership before returning data.
@@ -59,10 +61,12 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 
 ### Data model (core)
 - **User** — email-based identity
-- **League** — group with a unique invite code (CUID)
+- **League** — group with a unique invite code (CUID); `sport` field (NFL/NBA/MLB/NHL/NCAAF/NCAAB)
 - **LeagueMember** — join table with `role: admin | member`
-- **Game** — matchup with `startTime`, `status` (`scheduled` | `completed`), nullable scores
-- **Pick** — `(userId, gameId)` unique; records `pickedTeam`
+- **SportGame** — app-managed master schedule per sport (`homeTeam`, `awayTeam`, `scheduledAt`, `season`); seeded via `prisma/seed.ts`
+- **Slate** — named round within a league (`name`, `position`, `status: upcoming|active|completed`); only one active at a time; first slate auto-activates, subsequent slates activate when previous is fully scored
+- **Game** — matchup within a slate (`slateId` FK, `startTime`, `status`, nullable scores); created from `SportGame` rows by league admins
+- **Pick** — `(userId, gameId)` unique; records `pickedTeam`; locked at `game.startTime`
 
 NextAuth adapter models (`Account`, `Session`, `VerificationToken`) are managed automatically.
 
@@ -84,3 +88,10 @@ EMAIL_FROM
 - Use the singleton from `lib/db.ts` — never instantiate `PrismaClient` elsewhere
 - Run `prisma generate` after any schema change before running code or tests
 - `@prisma/adapter-pg` handles connection pooling; the adapter wraps a `pg.Pool`
+- Seed command configured in `prisma.config.ts` (`migrations.seed`); uses `tsx` to run TypeScript directly
+- `lib/sports.ts` is the single source of truth for the allowed sports list — import `SPORTS` from there in both API routes and UI
+
+### Phase status
+- **Phase 1 (MVP):** Complete — auth, leagues, games, picks, leaderboard
+- **Phase 2 (Slates & Sports):** Complete — sport field, master schedule, slates, sequential release, per-slate leaderboard
+- **Phase 3 (League Management):** Not started — see `docs/roadmap.md`

@@ -59,8 +59,11 @@ export default function LeaderboardPage() {
       : `/api/leagues/${leagueId}/leaderboard`;
 
     fetch(url)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load leaderboard");
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? `Error ${res.status}`);
+        }
         return res.json() as Promise<LeaderboardEntry[]>;
       })
       .then(setEntries)

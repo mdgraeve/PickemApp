@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-03 (leaderboard error display fix)
+
+- Leaderboard UI now shows the actual API error message (e.g. "Forbidden", "Slate not found") instead of the generic "Failed to load leaderboard"
+
 ## 2026-04-03 (phase 2 task 6 -- per-slate leaderboard)
 
 - `GET /api/leagues/[leagueId]/leaderboard` now accepts optional `?slateId=` query param; validates slate belongs to league (404 if not); filters completed games to that slate; overall behavior unchanged when omitted
