@@ -30,6 +30,8 @@ By the end of Phase 3, the app will be able to:
 
 A slate can have one or more tie-breaker questions. Each question is numeric (e.g. "Total combined score in Game 3?"). Members submit a response before the slate's last game starts. After the slate completes, the admin sets the correct answer. Proximity determines tie-breaking order (Price Is Right rules: closest without going over wins; if all go over, closest wins).
 
+**Design intent (long-term):** The tie-breaker question should correspond to the highest-quality game in the slate — the marquee matchup (prime-time game, playoff game, rivalry, etc.). Eventually the system should auto-suggest or auto-link the tie-breaker to that game so the question and lock time are derived automatically. For Phase 3, admins create the question manually with no game association; the game link is future work.
+
 **Schema changes:**
 
 - Add `TiebreakerQuestion` model (`slateId`, `question`, `answer?`, `position`)
