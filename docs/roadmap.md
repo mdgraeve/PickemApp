@@ -8,7 +8,7 @@
 - Submit picks (one per user per game, locked at game start)
 - Leaderboard showing correct pick counts per league
 
-## Phase 2 -- Slates & Sports (in progress)
+## Phase 2 -- Slates & Sports (complete)
 
 See [phase-2.md](phase-2.md) for full goals, tasks, and current status.
 
@@ -18,12 +18,15 @@ See [phase-2.md](phase-2.md) for full goals, tasks, and current status.
 - **Sequential slate release** -- next slate unlocks automatically when the current slate is fully scored
 - **Per-slate leaderboard** -- results per slate in addition to overall standings
 
-## Phase 3 -- League Management
+## Phase 3 -- League Management (in progress)
+
+See [phase-3.md](phase-3.md) for full goals, tasks, and current status.
 
 - Tie-breaker questions per slate
 - User profile pages
 - League settings (rename league, manage members)
 - Custom game lists -- admins can override the default sport schedule for their league
+- UI gaps from Phases 1 and 2 (games view, picks UI, admin slate management, home-page league list)
 
 ## Phase 4 -- Monetization
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-04 (phase 3 planning)
+
+- Defined Phase 3 goals and tasks in `docs/phase-3.md`
+- Phase 3 covers: tie-breaker questions per slate, user profile pages, league settings (rename + member management), custom game lists, and UI gaps from Phases 1 and 2
+- Identified UI gaps: no home-page league list, no games/picks view, no admin slate management UI — all to be addressed in Phase 3
+- Schema changes scoped: only `TiebreakerQuestion` and `TiebreakerResponse` models are new; tasks 3–5 require no schema changes
+- Updated `docs/roadmap.md`: Phase 2 marked complete, Phase 3 marked in progress
+
 ## 2026-04-03 (leaderboard error display fix)
 
 - Leaderboard UI now shows the actual API error message (e.g. "Forbidden", "Slate not found") instead of the generic "Failed to load leaderboard"
