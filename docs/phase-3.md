@@ -97,25 +97,7 @@ Only admins can access the settings page. The last admin of a league cannot demo
 
 ---
 
-### 4. Custom game lists
-
-**Status: Not started**
-
-Currently `POST /api/leagues/[leagueId]/slates/[slateId]/games` requires `sportGameIds[]` from the master schedule. Admins need the ability to add ad-hoc matchups (e.g. for playoff brackets or unsupported leagues not yet in the seed data).
-
-**Schema changes:** None — `Game` already has no `SportGame` FK. The model supports custom games today; only the API needs to be extended.
-
-**API changes:**
-
-- `POST /api/leagues/[leagueId]/slates/[slateId]/games` — extend request body to accept either:
-  - `{ sportGameIds: string[] }` — existing behavior (draw from master schedule)
-  - `{ customGames: { homeTeam: string; awayTeam: string; startTime: string }[] }` — new: create games directly without a SportGame source
-- Both modes can be mixed in a single request (union of both arrays)
-- Sport-match validation skipped for custom games (no SportGame to check against)
-
----
-
-### 5. UI gaps from Phases 1 and 2
+### 4. UI gaps from Phases 1 and 2
 
 **Status: Not started**
 
@@ -127,7 +109,7 @@ Several backend features were shipped in Phase 1 and 2 without a corresponding U
 | League home / active slate view | `/leagues/[leagueId]` — show the active slate's games with the user's picks overlaid; submit/change picks inline |
 | Pick submission UI | Inline pick buttons on the games view; disabled after game start time |
 | Slate history | Link from the leaderboard to view completed slate games and results |
-| Admin: slate management | Admin-only section in the league to create slates, add games from the master schedule (or custom), and record game scores |
+| Admin: slate management | Admin-only section in the league to create slates, add games from the master schedule, and record game scores |
 | Admin: result entry | Form to enter `homeScore` / `awayScore` for each completed game in the active slate |
 
 **No schema or API changes needed** — all of this functionality is already backed by existing routes.
@@ -143,7 +125,9 @@ Several backend features were shipped in Phase 1 and 2 without a corresponding U
 | Add relation | `Slate` | `tiebreakerQuestions TiebreakerQuestion[]` | Not started |
 | Add relation | `User` | `tiebreakerResponses TiebreakerResponse[]` | Not started |
 
-Tasks 3 (league settings), 4 (custom game lists), and 5 (UI gaps) require no schema changes.
+Tasks 3 (league settings) and 4 (UI gaps) require no schema changes.
+
+Custom game lists were deferred out of Phase 3 — the master schedule seed script is sufficient for now and avoids added API/UI complexity. If gaps in the schedule arise, extend `prisma/seed.ts` rather than building a custom-game flow. Revisit in Phase 4.
 
 ---
 
@@ -156,7 +140,7 @@ Tasks 3 (league settings), 4 (custom game lists), and 5 (UI gaps) require no sch
 | League rename | No | No `PATCH /api/leagues/[leagueId]` route |
 | Member list / role management | No | No `/members` routes |
 | Member removal | No | No `DELETE /members/[userId]` route |
-| Custom game lists | No | Slate games API only accepts `sportGameIds[]` |
+| Custom game lists | Deferred | Out of scope for Phase 3; extend seed data instead |
 | Home page league list | No | `/` has no league list; no navigation to leagues |
 | League home / games view | No | No `/leagues/[leagueId]` page; API-only |
 | Pick submission UI | No | `POST /picks` API exists; no UI |
