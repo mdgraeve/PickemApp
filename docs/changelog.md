@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-04-06 (phase 3 task 2 — league settings)
+
+**API additions:**
+- `PATCH /api/leagues/[leagueId]` — admin can rename the league (`name`) or change the sport (`sport`); sport change blocked if any slates have been created; validates name is non-empty and sport is in the allowed list
+- `GET /api/leagues/[leagueId]/members` — admin-only; returns all members with user details (name, email) ordered by join date
+- `PATCH /api/leagues/[leagueId]/members/[userId]` — admin can change a member's role (admin ↔ member); blocked with 400 if demoting the sole admin
+- `DELETE /api/leagues/[leagueId]/members/[userId]` — admin can remove a member; blocked with 400 if removing the sole admin
+
+**Frontend:**
+- `/leagues/[leagueId]/settings` — league settings page with: rename form, sport selector (locked if slates exist), invite code display with copy button, member table with Promote/Demote and Remove buttons; non-admins are redirected to the league home
+- League home page nav now shows a "Settings" link for admins alongside the existing Admin link
+
+**Tests:** 35 new tests (all passing) across 3 test files for the four new/updated API routes
+
 ## 2026-04-06 (phase 3 task 1 — bug fixes)
 
 - Admin page: removed position input from "Create Slate" form; position is now auto-assigned as max existing position + 1 so admins never need to think about ordering

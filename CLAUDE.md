@@ -51,6 +51,10 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 | `GET /api/leagues` | required | List leagues the current user belongs to |
 | `POST /api/leagues/join` | required | Join via invite code |
 | `GET /api/leagues/[leagueId]` | member | League details (`id`, `name`, `sport`, `inviteCode`, `memberCount`, `role`) |
+| `PATCH /api/leagues/[leagueId]` | admin | Update `name` and/or `sport`; sport change blocked once any slates exist |
+| `GET /api/leagues/[leagueId]/members` | admin | List all members with user details (name, email) ordered by joinedAt |
+| `PATCH /api/leagues/[leagueId]/members/[userId]` | admin | Change member role (admin ↔ member); 400 if demoting sole admin |
+| `DELETE /api/leagues/[leagueId]/members/[userId]` | admin | Remove member; 400 if removing sole admin |
 | `GET /api/leagues/[leagueId]/games` | member | Active slate games; returns `{ slate, games }` — slate includes `lockDeadline`; each game includes `myPick`; `slate` is null if no active slate |
 | `PATCH /api/leagues/[leagueId]/games/[gameId]` | admin | Record game result (`homeScore`, `awayScore`); triggers slate promotion if all slate games complete |
 | `POST /api/leagues/[leagueId]/games/[gameId]/picks` | member | Upsert pick; blocked 30 min before earliest game startTime in the slate (falls back to `game.startTime` for games with no slate) |
@@ -96,4 +100,4 @@ EMAIL_FROM
 ### Phase status
 - **Phase 1 (MVP):** Complete — auth, leagues, games, picks, leaderboard
 - **Phase 2 (Slates & Sports):** Complete — sport field, master schedule, slates, sequential release, per-slate leaderboard
-- **Phase 3 (League Management):** Not started — see `docs/roadmap.md`
+- **Phase 3 (League Management):** In progress — Task 1 (UI gaps) and Task 2 (League Settings) complete; see `docs/phase-3.md`

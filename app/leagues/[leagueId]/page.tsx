@@ -193,12 +193,20 @@ export default function LeaguePage() {
               Leaderboard
             </Link>
             {league?.role === "admin" && (
-              <Link
-                href={`/leagues/${leagueId}/admin`}
-                className="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-              >
-                Admin
-              </Link>
+              <>
+                <Link
+                  href={`/leagues/${leagueId}/admin`}
+                  className="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                >
+                  Admin
+                </Link>
+                <Link
+                  href={`/leagues/${leagueId}/settings`}
+                  className="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                >
+                  Settings
+                </Link>
+              </>
             )}
           </div>
         </div>

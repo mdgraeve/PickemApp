@@ -57,7 +57,7 @@ No other schema or API changes are needed — all remaining functionality is bac
 
 ### 2. League settings
 
-**Status: Not started**
+**Status: Complete**
 
 Only admins can access the settings page. The last admin of a league cannot demote themselves or be removed.
 
