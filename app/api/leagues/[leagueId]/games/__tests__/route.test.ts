@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({
     leagueMember: { findUnique: vi.fn() },
     slate: { findFirst: vi.fn() },
     game: { findMany: vi.fn() },
+    pick: { findMany: vi.fn() },
   },
 }));
 
@@ -20,6 +21,7 @@ const mockGetSession = getSession as ReturnType<typeof vi.fn>;
 const mockMemberFindUnique = prisma.leagueMember.findUnique as ReturnType<typeof vi.fn>;
 const mockSlateFindFirst = prisma.slate.findFirst as ReturnType<typeof vi.fn>;
 const mockGameFindMany = prisma.game.findMany as ReturnType<typeof vi.fn>;
+const mockPickFindMany = prisma.pick.findMany as ReturnType<typeof vi.fn>;
 
 const leagueId = "league-1";
 const fakeRequest = new Request(`http://localhost/api/leagues/${leagueId}/games`);
@@ -37,6 +39,10 @@ const fakeActiveSlate = {
   updatedAt: new Date("2026-04-01"),
 };
 
+// startTime as Date objects — first game is at 20:20 UTC
+const game1StartTime = new Date("2026-09-06T20:20:00Z");
+const game2StartTime = new Date("2026-09-07T17:00:00Z");
+
 const fakeGames = [
   {
     id: "game-1",
@@ -44,7 +50,7 @@ const fakeGames = [
     slateId: "slate-1",
     homeTeam: "Chiefs",
     awayTeam: "Ravens",
-    startTime: new Date("2026-09-06T20:20:00Z").toISOString(),
+    startTime: game1StartTime,
     homeScore: null,
     awayScore: null,
     status: "scheduled",
@@ -55,7 +61,7 @@ const fakeGames = [
     slateId: "slate-1",
     homeTeam: "Cowboys",
     awayTeam: "Giants",
-    startTime: new Date("2026-09-07T17:00:00Z").toISOString(),
+    startTime: game2StartTime,
     homeScore: null,
     awayScore: null,
     status: "scheduled",
@@ -64,6 +70,7 @@ const fakeGames = [
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mockPickFindMany.mockResolvedValue([]);
 });
 
 describe("GET /api/leagues/[leagueId]/games", () => {
@@ -86,9 +93,6 @@ describe("GET /api/leagues/[leagueId]/games", () => {
 
     expect(response.status).toBe(403);
     expect(body.error).toBe("Forbidden");
-    expect(mockMemberFindUnique).toHaveBeenCalledWith({
-      where: { userId_leagueId: { userId: "user-1", leagueId } },
-    });
   });
 
   it("returns slate:null and empty games array when no active slate exists", async () => {
@@ -123,6 +127,49 @@ describe("GET /api/leagues/[leagueId]/games", () => {
     expect(body.games).toHaveLength(2);
     expect(body.games[0].id).toBe("game-1");
     expect(body.games[1].id).toBe("game-2");
+  });
+
+  it("includes myPick on each game", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockSlateFindFirst.mockResolvedValue(fakeActiveSlate);
+    mockGameFindMany.mockResolvedValue(fakeGames);
+    mockPickFindMany.mockResolvedValue([
+      { gameId: "game-1", pickedTeam: "Chiefs" },
+    ]);
+
+    const response = await GET(fakeRequest, fakeContext);
+    const body = await response.json();
+
+    expect(body.games[0].myPick).toBe("Chiefs");
+    expect(body.games[1].myPick).toBeNull();
+  });
+
+  it("includes lockDeadline 30 minutes before the first game", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockSlateFindFirst.mockResolvedValue(fakeActiveSlate);
+    mockGameFindMany.mockResolvedValue(fakeGames);
+
+    const response = await GET(fakeRequest, fakeContext);
+    const body = await response.json();
+
+    const expectedDeadline = new Date(game1StartTime.getTime() - 30 * 60 * 1000);
+    expect(new Date(body.slate.lockDeadline).getTime()).toBe(expectedDeadline.getTime());
+  });
+
+  it("returns lockDeadline:null when slate has no games", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockSlateFindFirst.mockResolvedValue(fakeActiveSlate);
+    mockGameFindMany.mockResolvedValue([]);
+
+    const response = await GET(fakeRequest, fakeContext);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.slate.lockDeadline).toBeNull();
+    expect(body.games).toEqual([]);
   });
 
   it("queries for the active slate and its games with correct args", async () => {

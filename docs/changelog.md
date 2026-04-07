@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-04-06 (phase 3 task 1 — bug fixes)
+
+- Admin page: removed position input from "Create Slate" form; position is now auto-assigned as max existing position + 1 so admins never need to think about ordering
+- Admin page: added `router.refresh()` after slate creation and after adding games so the league home page does not serve a stale cached view when navigated to
+- Admin page: "Add games from schedule" panel now filters out games already present in the slate, preventing duplicates; shows "All scheduled games have already been added" when nothing remains
+- Slate history page: back link now goes to the league home page instead of the leaderboard
+- League home page: now shows a "Past Slates" section listing completed slates as links to their history pages so users can review results after a slate is scored
+
+## 2026-04-06 (phase 3 task 1 — UI gaps + slate-based lock time)
+
+**API additions and changes:**
+- `GET /api/leagues/[leagueId]` — new route; returns league name, sport, inviteCode, memberCount, and current user's role
+- `GET /api/sport-games?sport=&season=` — new route; returns master schedule games filtered by sport; optional season param
+- `GET /api/leagues/[leagueId]/games` — now includes `myPick` on each game and `lockDeadline` on the slate (30 min before first game startTime)
+- `GET /api/leagues/[leagueId]/slates/[slateId]/games` — now includes `myPick` on each game
+- `POST /api/leagues/[leagueId]/games/[gameId]/picks` — lock deadline changed from `game.startTime` to 30 minutes before the earliest game startTime in the slate; falls back to `game.startTime` for games with no slate
+
+**Frontend:**
+- Home page (`/`) — shows authenticated user's league list with sport badge and member count; Create/Join league actions; join form inline
+- League home (`/leagues/[leagueId]`) — shows active slate games with inline pick buttons; highlights current pick; shows correct/incorrect on completed games; shows lock deadline; admin link if role=admin
+- Slate history (`/leagues/[leagueId]/slates/[slateId]`) — read-only view of a completed or active slate's games with scores and user's pick results
+- Admin page (`/leagues/[leagueId]/admin`) — create slates, expand slate to record game scores, add games from master schedule (browseable checklist)
+- Leaderboard (`/leagues/[leagueId]/leaderboard`) — added back link to league home; "View games →" link appears when a slate is selected in the selector
+
+**Tests:** 99 passing (was 81; +18 new tests across 5 test files)
+
+## 2026-04-06 (phase 3 plan revision)
+
+- Revised `docs/phase-3.md` to cover gaps identified in plan review
+- Reordered tasks: UI gaps first (foundational usability), then league settings, user profiles, tie-breakers (most complex)
+- Defined unified lock time: all picks and tie-breaker responses due 30 minutes before the slate's first game starts; replaces per-game lock; falls back to `game.startTime` for games with no slate
+- Added `GET /api/leagues/[leagueId]` to Task 2 (settings page needs single-league detail)
+- Added `PATCH /api/users/me` and `/settings` UI to Task 3 (users need a way to set their display name; `User.name` is nullable)
+- Specified profile page authorization: 403 unless requester and target share at least one league membership
+- Promoted tie-breaker leaderboard integration from stretch goal to required; defined proximity scoring formula (Price Is Right rules; scores summed across questions)
+- Added tie-breaker UI to Task 4: response inputs on active slate view, answer reveal on completed slate view
+- Removed custom game lists from Phase 3 goals (already deferred in prior commit; cleaned up goal list accordingly)
+
 ## 2026-04-04 (phase 3 planning)
 
 - Defined Phase 3 goals and tasks in `docs/phase-3.md`

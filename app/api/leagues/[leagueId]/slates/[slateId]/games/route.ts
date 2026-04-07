@@ -33,6 +33,12 @@ export async function GET(
     orderBy: { startTime: "asc" },
   });
 
+  const gameIds = games.map((g) => g.id);
+  const picks = await prisma.pick.findMany({
+    where: { userId, gameId: { in: gameIds } },
+  });
+  const pickMap = new Map(picks.map((p) => [p.gameId, p.pickedTeam]));
+
   return NextResponse.json({
     slate: {
       id: slate.id,
@@ -40,7 +46,10 @@ export async function GET(
       position: slate.position,
       status: slate.status,
     },
-    games,
+    games: games.map((g) => ({
+      ...g,
+      myPick: pickMap.get(g.id) ?? null,
+    })),
   });
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
 type LeaderboardEntry = {
   rank: number;
@@ -99,9 +100,17 @@ export default function LeaderboardPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Link
+          href={`/leagues/${leagueId}`}
+          className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+        >
+          ←
+        </Link>
         <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
+      </div>
 
+      <div className="flex items-center gap-3">
         {slates.length > 0 && (
           <select
             value={selectedSlateId ?? ""}
@@ -115,6 +124,14 @@ export default function LeaderboardPage() {
               </option>
             ))}
           </select>
+        )}
+        {selectedSlateId && (
+          <Link
+            href={`/leagues/${leagueId}/slates/${selectedSlateId}`}
+            className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          >
+            View games →
+          </Link>
         )}
       </div>
 

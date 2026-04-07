@@ -50,14 +50,16 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 | `POST /api/leagues` | required | Create league; requires `name` and `sport` (NFL/NBA/MLB/NHL/NCAAF/NCAAB); creator gets `admin` role |
 | `GET /api/leagues` | required | List leagues the current user belongs to |
 | `POST /api/leagues/join` | required | Join via invite code |
-| `GET /api/leagues/[leagueId]/games` | member | Games in the active slate; returns `{ slate, games }` — `slate` is null if no active slate |
+| `GET /api/leagues/[leagueId]` | member | League details (`id`, `name`, `sport`, `inviteCode`, `memberCount`, `role`) |
+| `GET /api/leagues/[leagueId]/games` | member | Active slate games; returns `{ slate, games }` — slate includes `lockDeadline`; each game includes `myPick`; `slate` is null if no active slate |
 | `PATCH /api/leagues/[leagueId]/games/[gameId]` | admin | Record game result (`homeScore`, `awayScore`); triggers slate promotion if all slate games complete |
-| `POST /api/leagues/[leagueId]/games/[gameId]/picks` | member | Upsert pick; blocked after game start time |
+| `POST /api/leagues/[leagueId]/games/[gameId]/picks` | member | Upsert pick; blocked 30 min before earliest game startTime in the slate (falls back to `game.startTime` for games with no slate) |
 | `GET /api/leagues/[leagueId]/slates` | member | List slates ordered by position with game count |
-| `GET /api/leagues/[leagueId]/slates/[slateId]/games` | member | Games for a specific slate with slate metadata; for historical view |
+| `GET /api/leagues/[leagueId]/slates/[slateId]/games` | member | Games for a specific slate with slate metadata; each game includes `myPick`; for historical view |
 | `POST /api/leagues/[leagueId]/slates` | admin | Create a slate (`name`, `position`) |
 | `POST /api/leagues/[leagueId]/slates/[slateId]/games` | admin | Populate slate with games from SportGame schedule (`sportGameIds[]`); enforces sport match |
 | `GET /api/leagues/[leagueId]/leaderboard` | member | Ranked members by correct picks; optional `?slateId=` to scope to a single slate |
+| `GET /api/sport-games` | required | Master schedule games; requires `?sport=`; optional `?season=` |
 
 ### Data model (core)
 - **User** — email-based identity
@@ -66,7 +68,7 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 - **SportGame** — app-managed master schedule per sport (`homeTeam`, `awayTeam`, `scheduledAt`, `season`); seeded via `prisma/seed.ts`
 - **Slate** — named round within a league (`name`, `position`, `status: upcoming|active|completed`); only one active at a time; first slate auto-activates, subsequent slates activate when previous is fully scored
 - **Game** — matchup within a slate (`slateId` FK, `startTime`, `status`, nullable scores); created from `SportGame` rows by league admins
-- **Pick** — `(userId, gameId)` unique; records `pickedTeam`; locked at `game.startTime`
+- **Pick** — `(userId, gameId)` unique; records `pickedTeam`; locked 30 min before earliest game startTime in the slate (falls back to `game.startTime` for games with no slate)
 
 NextAuth adapter models (`Account`, `Session`, `VerificationToken`) are managed automatically.
 

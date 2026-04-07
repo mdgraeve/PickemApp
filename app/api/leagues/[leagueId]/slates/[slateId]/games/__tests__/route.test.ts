@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({
     league: { findUnique: vi.fn() },
     sportGame: { findMany: vi.fn() },
     game: { createMany: vi.fn(), findMany: vi.fn() },
+    pick: { findMany: vi.fn() },
   },
 }));
 
@@ -23,6 +24,7 @@ const mockLeagueFindUnique = prisma.league.findUnique as ReturnType<typeof vi.fn
 const mockSportGameFindMany = prisma.sportGame.findMany as ReturnType<typeof vi.fn>;
 const mockGameCreateMany = prisma.game.createMany as ReturnType<typeof vi.fn>;
 const mockGameFindMany = prisma.game.findMany as ReturnType<typeof vi.fn>;
+const mockPickFindMany = prisma.pick.findMany as ReturnType<typeof vi.fn>;
 
 const leagueId = "league-1";
 const slateId = "slate-1";
@@ -56,6 +58,7 @@ function makePostRequest(body: unknown) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mockPickFindMany.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -126,6 +129,22 @@ describe("GET /api/leagues/[leagueId]/slates/[slateId]/games", () => {
       where: { slateId },
       orderBy: { startTime: "asc" },
     });
+  });
+
+  it("includes myPick on each game", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(memberMembership);
+    mockSlateFindUnique.mockResolvedValue(fakeSlate);
+    mockGameFindMany.mockResolvedValue(fakeCreatedGames);
+    mockPickFindMany.mockResolvedValue([
+      { gameId: "game-1", pickedTeam: "Chiefs" },
+    ]);
+
+    const response = await GET(fakeGetRequest, fakeContext);
+    const body = await response.json();
+
+    expect(body.games[0].myPick).toBe("Chiefs");
+    expect(body.games[1].myPick).toBeNull();
   });
 
   it("returns empty games array when slate has no games", async () => {

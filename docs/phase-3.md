@@ -2,7 +2,7 @@
 
 **Status: In progress**
 
-Phase 3 introduces league administration and personalization. By the end of this phase, admins can manage their leagues (rename, manage members), users have profile pages with pick history, each slate can have tie-breaker questions, and league admins can define custom game lists instead of relying solely on the master SportGame schedule. Phase 3 also fills UI gaps left by Phases 1 and 2, where several backend features were built without corresponding UI pages.
+Phase 3 introduces league administration and personalization. By the end of this phase, the app is usable end-to-end: UI gaps from Phases 1 and 2 are filled, admins can manage their leagues (rename, manage members), users have profile pages with pick history, and each slate supports numeric tie-breaker questions whose answers factor into leaderboard tie-breaking.
 
 ---
 
@@ -10,69 +10,52 @@ Phase 3 introduces league administration and personalization. By the end of this
 
 By the end of Phase 3, the app will be able to:
 
-1. **Support tie-breaker questions per slate** -- admins add numeric tie-breaker questions to a slate; members submit answers before the slate closes; admins record the correct answer; proximity to the answer breaks ties on the leaderboard.
+1. **Fill UI gaps from Phases 1 and 2** — build the missing home-page league list, games view, picks submission UI, admin slate management UI, and admin result entry that Phase 1/2 shipped as API-only.
 
-2. **Show user profile pages** -- each user has a profile page visible to members of shared leagues, showing pick history, overall correct-pick rate, and per-sport stats.
+2. **Provide league settings** — admins can rename a league, view all members with their roles, change a member's role, or remove a member.
 
-3. **Provide league settings** -- admins can rename a league, view all members with their roles, change a member's role, or remove a member.
+3. **Show user profile pages** — each user has a profile page visible to members of shared leagues, showing pick history, overall correct-pick rate, and per-sport stats. Users can update their display name.
 
-4. **Support custom game lists** -- admins can add games directly to a slate (custom home/away teams + start time) without requiring a matching `SportGame` entry in the master schedule.
+4. **Support tie-breaker questions per slate** — admins add numeric tie-breaker questions to a slate; members submit answers before the deadline; admins record the correct answer; proximity to the answer breaks ties on the leaderboard.
 
-5. **Fill UI gaps from Phases 1 and 2** -- build the missing game view, picks submission UI, admin slate management UI, and a home-page league list that Phase 1/2 shipped as API-only.
+---
+
+## Pick and tie-breaker lock time
+
+All picks and tie-breaker responses for a slate are due **30 minutes before the slate's first game starts** — i.e., `min(game.startTime) across slate games - 30 minutes`. This replaces the Phase 1/2 behavior where each game locked picks individually at its own `startTime`. The lock deadline is derived at runtime from the slate's games; no new field is stored on the schema.
+
+For games not associated with a slate (legacy data only), the original per-game `startTime` lock behavior is preserved as a fallback.
 
 ---
 
 ## Tasks
 
-### 1. Tie-breaker questions
+### 1. UI gaps from Phases 1 and 2
 
-**Status: Not started**
+**Status: Complete**
 
-A slate can have one or more tie-breaker questions. Each question is numeric (e.g. "Total combined score in Game 3?"). Members submit a response before the slate's last game starts. After the slate completes, the admin sets the correct answer. Proximity determines tie-breaking order (Price Is Right rules: closest without going over wins; if all go over, closest wins).
+Several backend features shipped in Phases 1 and 2 without a corresponding UI. These are built first so the app works end-to-end before new features are layered on. This task also updates the pick lock time on the backend to the new slate-based rule.
 
-**Design intent (long-term):** The tie-breaker question should correspond to the highest-quality game in the slate — the marquee matchup (prime-time game, playoff game, rivalry, etc.). Eventually the system should auto-suggest or auto-link the tie-breaker to that game so the question and lock time are derived automatically. For Phase 3, admins create the question manually with no game association; the game link is future work.
-
-**Schema changes:**
-
-- Add `TiebreakerQuestion` model (`slateId`, `question`, `answer?`, `position`)
-- Add `TiebreakerResponse` model (`userId`, `questionId`, `response`)
-- Add `tiebreakerQuestions TiebreakerQuestion[]` relation to `Slate`
-- Add `tiebreakerResponses TiebreakerResponse[]` relation to `User`
-
-**API changes:**
-
-| Route | Auth | Notes |
-|---|---|---|
-| `GET /api/leagues/[leagueId]/slates/[slateId]/tiebreakers` | member | List questions; `answer` hidden until slate is completed |
-| `POST /api/leagues/[leagueId]/slates/[slateId]/tiebreakers` | admin | Create a question (`question`, `position`) |
-| `POST /api/leagues/[leagueId]/slates/[slateId]/tiebreakers/[questionId]/responses` | member | Submit/update numeric response; locked when slate is no longer active |
-| `PATCH /api/leagues/[leagueId]/slates/[slateId]/tiebreakers/[questionId]` | admin | Set correct `answer` |
-
-**Leaderboard impact (stretch goal):** When two members have identical correct pick counts, use their tie-breaker proximity score as a secondary sort key.
-
----
-
-### 2. User profile pages
-
-**Status: Not started**
-
-Any authenticated user who shares a league with the target user can view their profile. The profile shows aggregate pick stats across all leagues, not just one.
-
-**Schema changes:** None.
+| Gap | What to build |
+|---|---|
+| Home page league list | `/` — show the current user's leagues with sport badge, member count, and a link into the league |
+| League home / active slate view | `/leagues/[leagueId]` — show the active slate's games with the user's picks overlaid; submit/change picks inline |
+| Pick submission UI | Inline pick buttons on the games view; disabled after the slate lock deadline |
+| Slate history | Link from the leaderboard to view completed slate games and results |
+| Admin: slate management | Admin-only section to create slates and add games from the master schedule |
+| Admin: result entry | Form to enter `homeScore` / `awayScore` for each completed game in the active slate |
 
 **API changes:**
 
 | Route | Auth | Notes |
 |---|---|---|
-| `GET /api/users/[userId]` | authenticated | Returns `name`, `email` (masked), `createdAt`, per-league stats (correct/total picks, per sport) |
+| `POST /api/leagues/[leagueId]/games/[gameId]/picks` | member | Lock logic updated: blocked when `now >= min(game.startTime in slate) - 30 minutes`; falls back to `game.startTime` for games with no slate |
 
-**UI changes:**
-
-- `/profile/[userId]` — profile page; shows display name, join date, stats table (league, sport, correct picks, total picks, accuracy %), recent pick history
+No other schema or API changes are needed — all remaining functionality is backed by existing routes.
 
 ---
 
-### 3. League settings
+### 2. League settings
 
 **Status: Not started**
 
@@ -84,6 +67,7 @@ Only admins can access the settings page. The last admin of a league cannot demo
 
 | Route | Auth | Notes |
 |---|---|---|
+| `GET /api/leagues/[leagueId]` | member | Return league details (`id`, `name`, `sport`, `inviteCode`, `createdAt`); used by the settings page and league home |
 | `PATCH /api/leagues/[leagueId]` | admin | Update `name`; optionally update `sport` if no slates exist yet |
 | `GET /api/leagues/[leagueId]/members` | admin | List all members with `role`, `joinedAt`, `user.email`, `user.name` |
 | `PATCH /api/leagues/[leagueId]/members/[userId]` | admin | Change role (`admin` ↔ `member`); 400 if demoting sole admin |
@@ -92,27 +76,65 @@ Only admins can access the settings page. The last admin of a league cannot demo
 **UI changes:**
 
 - `/leagues/[leagueId]/settings` — settings page with:
-  - League rename form
+  - League rename form (pre-populated from `GET /api/leagues/[leagueId]`)
   - Member table (name, role, joined date) with role-change and remove actions (admin only)
 
 ---
 
-### 4. UI gaps from Phases 1 and 2
+### 3. User profiles
 
 **Status: Not started**
 
-Several backend features were shipped in Phase 1 and 2 without a corresponding UI. These should be built in Phase 3 before the app is considered usable end-to-end.
+Any authenticated user who shares at least one league with the target user can view their profile. The authorization check queries whether the requesting user and the target share a `LeagueMember` record in any common league; returns 403 otherwise. The profile shows aggregate pick stats across all leagues, not scoped to shared leagues only.
 
-| Gap | What to build |
-|---|---|
-| Home page league list | `/` — show the current user's leagues with sport badge, member count, and link to the league |
-| League home / active slate view | `/leagues/[leagueId]` — show the active slate's games with the user's picks overlaid; submit/change picks inline |
-| Pick submission UI | Inline pick buttons on the games view; disabled after game start time |
-| Slate history | Link from the leaderboard to view completed slate games and results |
-| Admin: slate management | Admin-only section in the league to create slates, add games from the master schedule, and record game scores |
-| Admin: result entry | Form to enter `homeScore` / `awayScore` for each completed game in the active slate |
+**Schema changes:** None.
 
-**No schema or API changes needed** — all of this functionality is already backed by existing routes.
+**API changes:**
+
+| Route | Auth | Notes |
+|---|---|---|
+| `GET /api/users/[userId]` | authenticated; shared league required | Returns `name`, `email` (masked to first character + domain), `createdAt`, per-league stats (correct picks, total picks, accuracy %, sport); 403 if no shared league |
+| `PATCH /api/users/me` | authenticated | Update `name` for the current user |
+
+**UI changes:**
+
+- `/profile/[userId]` — profile page; shows display name, join date, stats table (league, sport, correct picks, total picks, accuracy %), recent pick history
+- `/settings` — current user's settings page; includes a form to update display name
+
+---
+
+### 4. Tie-breaker questions
+
+**Status: Not started**
+
+A slate can have one or more tie-breaker questions. Each question is numeric (e.g. "Total combined score in Game 3?"). Members submit a response before the lock deadline (30 minutes before the slate's first game starts). After the slate completes, the admin sets the correct answer. Proximity determines tie-breaking order (Price Is Right rules: closest without going over wins; if all go over, closest wins).
+
+Tie-breaker responses use the same lock deadline as picks: `min(game.startTime in slate) - 30 minutes`.
+
+**Design intent (long-term):** Tie-breaker questions should eventually be auto-linked to the marquee game in the slate so the question and lock time are derived automatically. For Phase 3, admins create questions manually with no game association; the game link is future work.
+
+**Schema changes:**
+
+- Add `TiebreakerQuestion` model: `id`, `slateId`, `question`, `answer?` (nullable until admin sets it), `position`
+- Add `TiebreakerResponse` model: `id`, `userId`, `questionId`, `response`; unique `(userId, questionId)`
+- Add `tiebreakerQuestions TiebreakerQuestion[]` relation to `Slate`
+- Add `tiebreakerResponses TiebreakerResponse[]` relation to `User`
+
+**API changes:**
+
+| Route | Auth | Notes |
+|---|---|---|
+| `GET /api/leagues/[leagueId]/slates/[slateId]/tiebreakers` | member | List questions; `answer` field omitted until slate status is `completed` |
+| `POST /api/leagues/[leagueId]/slates/[slateId]/tiebreakers` | admin | Create a question (`question`, `position`) |
+| `POST /api/leagues/[leagueId]/slates/[slateId]/tiebreakers/[questionId]/responses` | member | Submit or update numeric response; 400 if past the lock deadline |
+| `PATCH /api/leagues/[leagueId]/slates/[slateId]/tiebreakers/[questionId]` | admin | Set correct `answer` |
+
+**Leaderboard integration:** When two members have the same correct pick count, tie-breaker proximity is the secondary sort key. Proximity is scored per question as `1 / (1 + |response - answer|)` for responses that did not go over, and `0` for responses that went over (Price Is Right rules). Scores across all questions in the slate are summed. Members who submitted at least one response rank above those who submitted none. The leaderboard `GET /api/leagues/[leagueId]/leaderboard` will apply this logic when the slate has tie-breaker questions with answers set.
+
+**UI changes:**
+
+- On the active slate view (`/leagues/[leagueId]`), show tie-breaker question(s) with a numeric input; disabled after the lock deadline
+- On the completed slate view, show the correct answer and each member's response
 
 ---
 
@@ -120,14 +142,14 @@ Several backend features were shipped in Phase 1 and 2 without a corresponding U
 
 | Change | Model | Details | Status |
 |---|---|---|---|
-| Add `TiebreakerQuestion` | new model | `slateId`, `question`, `answer?`, `position` | Not started |
-| Add `TiebreakerResponse` | new model | `userId`, `questionId`, `response`; unique `(userId, questionId)` | Not started |
+| Add `TiebreakerQuestion` | new model | `id`, `slateId`, `question`, `answer?`, `position` | Not started |
+| Add `TiebreakerResponse` | new model | `id`, `userId`, `questionId`, `response`; unique `(userId, questionId)` | Not started |
 | Add relation | `Slate` | `tiebreakerQuestions TiebreakerQuestion[]` | Not started |
 | Add relation | `User` | `tiebreakerResponses TiebreakerResponse[]` | Not started |
 
-Tasks 3 (league settings) and 4 (UI gaps) require no schema changes.
+Tasks 1 (UI gaps), 2 (league settings), and 3 (user profiles) require no schema changes.
 
-Custom game lists were deferred out of Phase 3 — the master schedule seed script is sufficient for now and avoids added API/UI complexity. If gaps in the schedule arise, extend `prisma/seed.ts` rather than building a custom-game flow. Revisit in Phase 4.
+Custom game lists were deferred out of Phase 3 — extend `prisma/seed.ts` if schedule gaps arise. Revisit in Phase 4.
 
 ---
 
@@ -135,13 +157,17 @@ Custom game lists were deferred out of Phase 3 — the master schedule seed scri
 
 | Requirement | Supported now? | Notes |
 |---|---|---|
-| Tie-breaker questions | No | Schema and API not yet built |
-| User profiles | No | No profile API or UI |
-| League rename | No | No `PATCH /api/leagues/[leagueId]` route |
-| Member list / role management | No | No `/members` routes |
-| Member removal | No | No `DELETE /members/[userId]` route |
-| Custom game lists | Deferred | Out of scope for Phase 3; extend seed data instead |
 | Home page league list | No | `/` has no league list; no navigation to leagues |
 | League home / games view | No | No `/leagues/[leagueId]` page; API-only |
 | Pick submission UI | No | `POST /picks` API exists; no UI |
+| Slate-based pick lock time | No | Currently locks per game at `game.startTime`; needs to change to 30 min before slate's first game |
 | Admin slate management UI | No | All slate/game/score APIs exist; no UI |
+| League detail endpoint | No | No `GET /api/leagues/[leagueId]`; needed by settings page and league home |
+| League rename | No | No `PATCH /api/leagues/[leagueId]` route |
+| Member list / role management | No | No `/members` routes |
+| Member removal | No | No `DELETE /members/[userId]` route |
+| User profile page | No | No profile API or UI |
+| User name update | No | `User.name` is nullable; no API to set it |
+| Tie-breaker questions | No | Schema and API not yet built |
+| Tie-breaker leaderboard integration | No | Leaderboard does not apply proximity scoring |
+| Custom game lists | Deferred | Out of scope for Phase 3; extend seed data instead |

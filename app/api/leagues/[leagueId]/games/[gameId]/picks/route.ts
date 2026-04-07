@@ -54,7 +54,23 @@ export async function POST(
     );
   }
 
-  if (game.startTime <= new Date()) {
+  // Lock deadline: 30 minutes before the first game in the slate.
+  // Falls back to the individual game's startTime for games without a slate.
+  let lockDeadline: Date;
+  if (game.slateId) {
+    const agg = await prisma.game.aggregate({
+      where: { slateId: game.slateId },
+      _min: { startTime: true },
+    });
+    const firstStart = agg._min.startTime;
+    lockDeadline = firstStart
+      ? new Date(firstStart.getTime() - 30 * 60 * 1000)
+      : game.startTime;
+  } else {
+    lockDeadline = game.startTime;
+  }
+
+  if (lockDeadline <= new Date()) {
     return NextResponse.json(
       { error: "Pick deadline has passed" },
       { status: 400 },

@@ -17,8 +17,9 @@ The app uses Next.js App Router with the `app/` directory at the project root. S
 
 Key directories:
 
-- `app/api/leagues/` -- REST API routes (leagues, games, picks, leaderboard)
-- `app/leagues/` -- UI pages for league features (e.g. leaderboard)
+- `app/api/leagues/` -- REST API routes (leagues, games, picks, leaderboard, slates)
+- `app/api/sport-games/` -- master schedule query endpoint
+- `app/leagues/` -- UI pages for league features (home, games/picks, leaderboard, slate history, admin)
 - `lib/` -- shared utilities, database client, auth config
 - `prisma/` -- schema and migrations
 - `public/` -- static assets
@@ -46,7 +47,9 @@ NextAuth v4 with the Prisma adapter. Sessions are stored in the database via the
 
 - **User** -- authenticated user; has accounts, sessions, league memberships, and picks
 - **Account / Session / VerificationToken** -- NextAuth adapter models for auth state
-- **League** -- a pick'em competition group created by a user
+- **League** -- a pick'em competition group; tied to a single sport
 - **LeagueMember** -- join table linking users to leagues with a role (admin/member)
-- **Game** -- a matchup within a league (home vs. away, start time, scores, status)
-- **Pick** -- a user's prediction for a game (one per user per game)
+- **SportGame** -- app-managed canonical schedule per sport; seeded via `prisma/seed.ts`
+- **Slate** -- named round within a league (position, status: upcoming/active/completed); one active at a time
+- **Game** -- a matchup within a slate (home vs. away, start time, scores, status)
+- **Pick** -- a user's prediction for a game (one per user per game); locked 30 min before first game in slate
