@@ -411,18 +411,20 @@ export default function AdminPage() {
 
                               return (
                                 <li key={game.id} className="space-y-2">
-                                  <div className="text-sm">
-                                    <span className="font-medium text-white">{game.awayTeam}</span>
-                                    <span className="text-slate-500 mx-2">@</span>
-                                    <span className="font-medium text-white">{game.homeTeam}</span>
-                                    <span className="ml-3 text-xs text-slate-500">{formatDateTime(game.startTime)}</span>
-                                    {isCompleted && (
-                                      <span className="ml-2 text-xs font-medium text-green-400">
-                                        Final: {game.awayScore}–{game.homeScore}
-                                      </span>
-                                    )}
+                                  <div className="text-sm space-y-0.5">
+                                    <div>
+                                      <span className="font-medium text-white">{game.awayTeam}</span>
+                                      <span className="text-slate-500 mx-2">@</span>
+                                      <span className="font-medium text-white">{game.homeTeam}</span>
+                                      {isCompleted && (
+                                        <span className="ml-2 text-xs font-medium text-green-400">
+                                          Final: {game.awayScore}–{game.homeScore}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-slate-500">{formatDateTime(game.startTime)}</div>
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-2">
                                     <input
                                       type="number"
                                       min={0}
@@ -561,7 +563,7 @@ export default function AdminPage() {
                               ) : (
                                 <ul className="space-y-1 max-h-64 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
                                   {available.map((sg) => (
-                                    <li key={sg.id} className="flex items-center gap-2 text-sm py-1">
+                                    <li key={sg.id} className="flex items-start gap-2 text-sm py-1.5">
                                       <input
                                         type="checkbox"
                                         id={`sg-${sg.id}`}
@@ -573,13 +575,15 @@ export default function AdminPage() {
                                             return next;
                                           });
                                         }}
-                                        className="rounded border-slate-700 bg-slate-800 accent-blue-500"
+                                        className="mt-0.5 shrink-0 rounded border-slate-700 bg-slate-800 accent-blue-500"
                                       />
-                                      <label htmlFor={`sg-${sg.id}`} className="cursor-pointer text-slate-300">
-                                        <span className="font-medium text-white">{sg.awayTeam}</span>
-                                        <span className="text-slate-500 mx-1">@</span>
-                                        <span className="font-medium text-white">{sg.homeTeam}</span>
-                                        <span className="ml-2 text-xs text-slate-500">{formatDateTime(sg.scheduledAt)}</span>
+                                      <label htmlFor={`sg-${sg.id}`} className="cursor-pointer text-slate-300 space-y-0.5">
+                                        <div>
+                                          <span className="font-medium text-white">{sg.awayTeam}</span>
+                                          <span className="text-slate-500 mx-1">@</span>
+                                          <span className="font-medium text-white">{sg.homeTeam}</span>
+                                        </div>
+                                        <div className="text-xs text-slate-500">{formatDateTime(sg.scheduledAt)}</div>
                                       </label>
                                     </li>
                                   ))}

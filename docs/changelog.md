@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-04-08 (phase 4 task 4 — mobile layout fixes)
+
+**Visual changes (no schema or API changes):**
+
+- **Leaderboard page** (`app/leagues/[leagueId]/leaderboard/page.tsx`):
+  - Reduced cell padding from `px-5` to `px-3 sm:px-5` to prevent horizontal overflow at 375px
+  - Hid the "Picked" column on mobile (`hidden sm:table-cell`) to free horizontal space
+
+- **Picks page** (`app/leagues/[leagueId]/page.tsx`):
+  - Slate header row changed to `flex-wrap` so the lock deadline drops below the title on narrow screens instead of overflowing
+
+- **Admin page** (`app/leagues/[leagueId]/admin/page.tsx`):
+  - Game info row restructured: team matchup on its own line; date/time on a separate line below — prevents overflow on small viewports
+  - Score entry row changed to `flex-wrap` so inputs wrap when needed
+  - Add-games schedule list: checkbox aligns to top (`items-start`); team matchup and date now on separate lines inside the label
+
+- **League Settings page** (`app/leagues/[leagueId]/settings/page.tsx`):
+  - Member row padding reduced to `px-3 sm:px-5`; actions gap tightened to `gap-1 sm:gap-2`
+  - Role badge hidden on mobile for non-self members (role is implied by Demote/Promote button text); always shown for the current user row which has no action buttons
+
 ## 2026-04-08 (phase 4 tasks 3/5/6 — admin restyle, loading skeletons, empty states)
 
 **Visual changes (no schema or API changes):**

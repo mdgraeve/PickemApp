@@ -129,10 +129,10 @@ export default function LeaderboardPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800 text-left text-slate-500">
-                <th className="px-5 py-3 font-medium">Rank</th>
-                <th className="px-5 py-3 font-medium">Player</th>
-                <th className="px-5 py-3 font-medium text-right">Correct</th>
-                <th className="px-5 py-3 font-medium text-right">Picked</th>
+                <th className="px-3 sm:px-5 py-3 font-medium">Rank</th>
+                <th className="px-3 sm:px-5 py-3 font-medium">Player</th>
+                <th className="px-3 sm:px-5 py-3 font-medium text-right">Correct</th>
+                <th className="hidden sm:table-cell px-5 py-3 font-medium text-right">Picked</th>
               </tr>
             </thead>
             <tbody>
@@ -149,10 +149,10 @@ export default function LeaderboardPage() {
                         : "hover:bg-slate-800/30"
                     }`}
                   >
-                    <td className="px-5 py-3.5 text-slate-400 font-medium">
+                    <td className="px-3 sm:px-5 py-3 text-slate-400 font-medium">
                       {medal ?? entry.rank}
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 sm:px-5 py-3">
                       <Link
                         href={`/profile/${entry.userId}`}
                         className="font-medium text-white hover:text-blue-400 transition"
@@ -163,8 +163,8 @@ export default function LeaderboardPage() {
                         <span className="ml-2 text-xs text-slate-500">(you)</span>
                       )}
                     </td>
-                    <td className="px-5 py-3.5 text-right font-semibold text-white">{entry.correct}</td>
-                    <td className="px-5 py-3.5 text-right text-slate-400">{entry.totalPicks}</td>
+                    <td className="px-3 sm:px-5 py-3 text-right font-semibold text-white">{entry.correct}</td>
+                    <td className="hidden sm:table-cell px-5 py-3 text-right text-slate-400">{entry.totalPicks}</td>
                   </tr>
                 );
               })}

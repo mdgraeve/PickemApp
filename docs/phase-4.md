@@ -97,15 +97,17 @@ Full restyle of every page using the new dark design system:
 
 ### 4. Mobile Layout
 
-**Status: Not started**
+**Status: Complete**
 
-Audit and fix all pages at 375px viewport width:
+Audited and fixed all pages at 375px viewport width:
 
-- Game cards: ensure pick buttons don't overflow; adequate tap target size (min 44px)
-- Admin "Add Games" table: horizontal scroll or card-list conversion on mobile
-- Admin score entry: full-width inputs on mobile
-- Nav: hamburger menu already implemented in Task 2
-- Leaderboard table: no horizontal overflow; hide or truncate low-priority columns if needed
+- **Leaderboard:** Reduced cell padding to `px-3 sm:px-5`; hid "Picked" column on mobile (`hidden sm:table-cell`)
+- **Picks page:** Slate header uses `flex-wrap` so lock deadline wraps below title on small screens
+- **Admin — game list:** Date/time moved to its own line below team names; score entry row uses `flex-wrap`
+- **Admin — Add Games:** Checkbox aligns to top; team matchup and date on separate lines inside the label
+- **Settings — Members:** Reduced row padding to `px-3 sm:px-5`; role badge hidden on mobile for non-self (Demote/Promote implies role); always shown for current user row
+- Nav: hamburger menu was already implemented in Task 2
+- Pick buttons: `flex-1 py-4` already provides sufficient tap targets (≥44px)
 
 **Schema changes:** None.
 **API changes:** None.
@@ -189,7 +191,7 @@ https://a.espncdn.com/i/teamlogos/{sport}/500/{abbr}.png
 | Dark design system | Yes | Completed in Task 1 |
 | Persistent navigation | Yes | Completed in Task 2 |
 | Visual polish | Yes | Completed in Task 3 |
-| Mobile-optimised layout | Partial | Task 4 not started |
+| Mobile-optimised layout | Yes | Completed in Task 4 |
 | Loading skeletons | Yes | Completed in Task 5 |
 | Actionable empty states | Yes | Completed in Task 6 |
 | Team logos | No | Task 7 not started |

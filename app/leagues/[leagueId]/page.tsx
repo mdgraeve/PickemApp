@@ -244,10 +244,10 @@ export default function LeaguePage() {
       ) : (
         <div className="space-y-5">
           {/* Slate header */}
-          <div className="flex items-baseline justify-between gap-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-white">{slate.name}</h1>
             {slate.lockDeadline && (
-              <p className={`text-sm shrink-0 ${locked ? "text-red-400 font-medium" : "text-slate-400"}`}>
+              <p className={`text-sm ${locked ? "text-red-400 font-medium" : "text-slate-400"}`}>
                 {locked ? "Picks locked" : `Locks ${formatDeadline(slate.lockDeadline)}`}
               </p>
             )}

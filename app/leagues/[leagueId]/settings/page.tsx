@@ -297,7 +297,7 @@ export default function LeagueSettingsPage() {
             const isCurrentUser = member.userId === currentUserId;
             const isPending = memberActionPending === member.userId;
             return (
-              <div key={member.id} className="flex items-center justify-between px-5 py-3.5">
+              <div key={member.id} className="flex items-center justify-between px-3 sm:px-5 py-3.5 gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-white">
                     {member.name ?? member.email}
@@ -309,9 +309,10 @@ export default function LeagueSettingsPage() {
                     <p className="truncate text-xs text-slate-500">{member.email}</p>
                   )}
                 </div>
-                <div className="ml-4 flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                  {/* Role badge: always visible for self (no action buttons); desktop-only for others */}
                   <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    className={`${isCurrentUser ? "inline-block" : "hidden sm:inline-block"} rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       member.role === "admin"
                         ? "bg-blue-900/50 text-blue-300"
                         : "bg-slate-800 text-slate-400"
