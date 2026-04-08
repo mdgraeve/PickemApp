@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { PageLoader } from "@/app/components/skeleton";
+import { getTeamLogoUrl } from "@/lib/team-logos";
 
 type Slate = {
   id: string;
@@ -63,6 +65,7 @@ export default function SlateHistoryPage() {
   const leagueId = params.leagueId as string;
   const slateId = params.slateId as string;
 
+  const [sport, setSport] = useState<string | null>(null);
   const [slate, setSlate] = useState<Slate | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [tiebreakers, setTiebreakers] = useState<TiebreakerQuestion[]>([]);
@@ -79,20 +82,23 @@ export default function SlateHistoryPage() {
     Promise.all([
       fetch(`/api/leagues/${leagueId}/slates/${slateId}/games`),
       fetch(`/api/leagues/${leagueId}/slates/${slateId}/tiebreakers`),
+      fetch(`/api/leagues/${leagueId}`),
     ])
-      .then(async ([gamesRes, tbRes]) => {
+      .then(async ([gamesRes, tbRes, leagueRes]) => {
         if (!gamesRes.ok) {
           const d = await gamesRes.json().catch(() => ({}));
           throw new Error(d.error ?? `Error ${gamesRes.status}`);
         }
         const gamesData = await gamesRes.json();
         const tbData: TiebreakerQuestion[] = tbRes.ok ? await tbRes.json() : [];
-        return { gamesData, tbData };
+        const leagueData = leagueRes.ok ? await leagueRes.json() : null;
+        return { gamesData, tbData, leagueData };
       })
-      .then(({ gamesData, tbData }) => {
+      .then(({ gamesData, tbData, leagueData }) => {
         setSlate(gamesData.slate);
         setGames(gamesData.games);
         setTiebreakers(tbData);
+        setSport(leagueData?.sport ?? null);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
@@ -197,6 +203,7 @@ export default function SlateHistoryPage() {
                     const isLoser = isCompleted && winner !== null && winner !== team;
                     const isCorrect = isCompleted && isPicked && isWinner;
                     const isWrong = isCompleted && isPicked && !isWinner;
+                    const logoUrl = sport ? getTeamLogoUrl(sport, team) : null;
 
                     let cls =
                       "flex-1 rounded-xl px-3 py-3 text-sm font-semibold text-center cursor-default transition-colors";
@@ -215,12 +222,26 @@ export default function SlateHistoryPage() {
 
                     return (
                       <div key={team} className={cls}>
-                        {team}
-                        {isCompleted && game.homeScore !== null && game.awayScore !== null && (
-                          <span className="ml-1.5 text-xs font-normal opacity-75">
-                            ({team === game.homeTeam ? game.homeScore : game.awayScore})
+                        <span className="flex flex-col items-center gap-1.5">
+                          {logoUrl && (
+                            <Image
+                              src={logoUrl}
+                              alt={team}
+                              width={32}
+                              height={32}
+                              unoptimized
+                              className="object-contain"
+                            />
+                          )}
+                          <span>
+                            {team}
+                            {isCompleted && game.homeScore !== null && game.awayScore !== null && (
+                              <span className="ml-1.5 text-xs font-normal opacity-75">
+                                ({team === game.homeTeam ? game.homeScore : game.awayScore})
+                              </span>
+                            )}
                           </span>
-                        )}
+                        </span>
                       </div>
                     );
                   })}

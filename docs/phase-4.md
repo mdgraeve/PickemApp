@@ -155,18 +155,20 @@ Created `app/components/empty-state.tsx` with an `<EmptyState>` component accept
 
 ### 7. Team Logos
 
-**Status: Not started**
+**Status: Complete**
 
-Create `lib/team-logos.ts` mapping `(sport, teamName)` → ESPN CDN logo URL:
+Created `lib/team-logos.ts` mapping `(sport, teamName)` → ESPN CDN logo URL:
 
 ```
-https://a.espncdn.com/i/teamlogos/{sport}/500/{abbr}.png
+https://a.espncdn.com/i/teamlogos/{sport}/500/{abbr}.png  (pro leagues)
+https://a.espncdn.com/i/teamlogos/ncaa/500/{id}.png       (college)
 ```
 
-- Cover NFL, NBA, MLB, NHL, NCAAF, NCAAB team names → abbreviations
-- Return `null` for unknown teams (render nothing — no broken image)
-- Render via `<Image>` with `unoptimized` (external CDN) as `w-8 h-8 object-contain rounded-full`
-- Show alongside team names on game cards (picks page + slate history page)
+- Covers all 32 NFL, 30 NBA, 30 MLB, 32 NHL teams by full name → abbreviation
+- Covers major NCAAF and NCAAB programs by full name → ESPN numeric ID
+- Returns `null` for unknown teams (renders nothing — no broken image)
+- Rendered via `<Image unoptimized>` as `32×32 object-contain` above team name in each pick button
+- Slate history page fetches `/api/leagues/${leagueId}` in parallel to obtain `sport` for logo lookup
 
 **New file:** `lib/team-logos.ts`
 **Schema changes:** None.
@@ -194,4 +196,4 @@ https://a.espncdn.com/i/teamlogos/{sport}/500/{abbr}.png
 | Mobile-optimised layout | Yes | Completed in Task 4 |
 | Loading skeletons | Yes | Completed in Task 5 |
 | Actionable empty states | Yes | Completed in Task 6 |
-| Team logos | No | Task 7 not started |
+| Team logos | Yes | Completed in Task 7 |

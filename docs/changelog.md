@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-04-08 (phase 4 task 7 — team logos)
+
+**Visual changes (no schema or API changes):**
+
+- **New file** `lib/team-logos.ts`:
+  - Exports `getTeamLogoUrl(sport, teamName): string | null`
+  - Maps full team names to ESPN CDN logo URLs (`https://a.espncdn.com/i/teamlogos/...`)
+  - Covers all 32 NFL teams, 30 NBA teams, 30 MLB teams, 32 NHL teams, and major NCAAF/NCAAB programs
+  - Returns `null` for unknown teams so callers can skip rendering the image
+
+- **Picks page** (`app/leagues/[leagueId]/page.tsx`):
+  - Each pick button now shows a 32×32 team logo above the team name when a logo mapping exists
+  - Logo rendered via `<Image unoptimized>` fetched directly from ESPN CDN
+
+- **Slate history page** (`app/leagues/[leagueId]/slates/[slateId]/page.tsx`):
+  - Added parallel fetch of `/api/leagues/${leagueId}` to get the league's sport for logo lookup
+  - Same logo treatment as picks page — logo above team name in each game card
+
 ## 2026-04-08 (phase 4 task 4 — mobile layout fixes)
 
 **Visual changes (no schema or API changes):**

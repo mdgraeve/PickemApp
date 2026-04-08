@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { PageLoader } from "@/app/components/skeleton";
+import { getTeamLogoUrl } from "@/lib/team-logos";
 
 type League = {
   id: string;
@@ -283,6 +285,9 @@ export default function LeaguePage() {
                         const isLoser = isCompleted && winner !== null && winner !== team;
                         const isCorrect = isCompleted && isPicked && isWinner;
                         const isWrong = isCompleted && isPicked && !isWinner;
+                        const logoUrl = league?.sport
+                          ? getTeamLogoUrl(league.sport, team)
+                          : null;
 
                         let cls =
                           "flex-1 rounded-xl px-3 py-4 text-sm font-semibold text-center transition-colors";
@@ -310,12 +315,26 @@ export default function LeaguePage() {
                             onClick={() => submitPick(game.id, team)}
                             className={cls}
                           >
-                            {team}
-                            {isCompleted && game.homeScore !== null && game.awayScore !== null && (
-                              <span className="ml-1.5 text-xs font-normal opacity-75">
-                                ({team === game.homeTeam ? game.homeScore : game.awayScore})
+                            <span className="flex flex-col items-center gap-1.5">
+                              {logoUrl && (
+                                <Image
+                                  src={logoUrl}
+                                  alt={team}
+                                  width={32}
+                                  height={32}
+                                  unoptimized
+                                  className="object-contain"
+                                />
+                              )}
+                              <span>
+                                {team}
+                                {isCompleted && game.homeScore !== null && game.awayScore !== null && (
+                                  <span className="ml-1.5 text-xs font-normal opacity-75">
+                                    ({team === game.homeTeam ? game.homeScore : game.awayScore})
+                                  </span>
+                                )}
                               </span>
-                            )}
+                            </span>
                           </button>
                         );
                       })}
