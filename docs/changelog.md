@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-04-07 (phase 3 task 3 — user profiles)
+
+**API additions:**
+- `GET /api/users/[userId]` — authenticated; 403 unless requester shares a league with the target or is viewing their own profile; returns `id`, `name`, masked `email` (first char + `***@domain`), `createdAt`, per-league `stats` (leagueId, leagueName, sport, correctPicks, totalPicks, accuracy %), and `pickHistory` (last 15 picks with isCorrect flag)
+- `PATCH /api/users/me` — authenticated; updates current user's `name`; 400 if name is missing or blank; returns `{ id, name, email }`
+
+**Frontend:**
+- `/profile/[userId]` — profile page showing display name, masked email, join date, overall pick stat summary, per-league stats table, and recent pick history with correct/wrong/pending badges; "Edit profile" link shown to the profile owner
+- `/settings` — settings page for the current user; form to set/update display name; link to view your own profile
+- Leaderboard: player names are now clickable links to `/profile/[userId]`
+- Home page: "Settings" link added to the header alongside the sign-out button
+
+**Tests:** 11 new tests (all passing) across 2 test files for `GET /api/users/[userId]` and `PATCH /api/users/me`
+
 ## 2026-04-06 (phase 3 task 2 — league settings)
 
 **API additions:**

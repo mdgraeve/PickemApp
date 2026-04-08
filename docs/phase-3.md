@@ -83,7 +83,7 @@ Only admins can access the settings page. The last admin of a league cannot demo
 
 ### 3. User profiles
 
-**Status: Not started**
+**Status: Complete**
 
 Any authenticated user who shares at least one league with the target user can view their profile. The authorization check queries whether the requesting user and the target share a `LeagueMember` record in any common league; returns 403 otherwise. The profile shows aggregate pick stats across all leagues, not scoped to shared leagues only.
 
@@ -166,8 +166,8 @@ Custom game lists were deferred out of Phase 3 — extend `prisma/seed.ts` if sc
 | League rename | No | No `PATCH /api/leagues/[leagueId]` route |
 | Member list / role management | No | No `/members` routes |
 | Member removal | No | No `DELETE /members/[userId]` route |
-| User profile page | No | No profile API or UI |
-| User name update | No | `User.name` is nullable; no API to set it |
+| User profile page | Yes | `/profile/[userId]`; stats table, pick history, edit profile link |
+| User name update | Yes | `PATCH /api/users/me`; `/settings` page |
 | Tie-breaker questions | No | Schema and API not yet built |
 | Tie-breaker leaderboard integration | No | Leaderboard does not apply proximity scoring |
 | Custom game lists | Deferred | Out of scope for Phase 3; extend seed data instead |

@@ -89,12 +89,17 @@ export default function Home() {
     <div className="mx-auto max-w-2xl px-4 py-10 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Your Leagues</h1>
-        <button
-          onClick={() => signOut()}
-          className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-4 text-sm text-zinc-500">
+          <Link href="/settings" className="hover:text-zinc-700 dark:hover:text-zinc-300">
+            Settings
+          </Link>
+          <button
+            onClick={() => signOut()}
+            className="hover:text-zinc-700 dark:hover:text-zinc-300"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       {loadingLeagues ? (

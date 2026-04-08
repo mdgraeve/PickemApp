@@ -161,7 +161,12 @@ export default function LeaderboardPage() {
                 >
                   <td className="py-3 pr-4 text-zinc-500">{rankLabel(entry.rank)}</td>
                   <td className="py-3 pr-4">
-                    {entry.name ?? entry.email}
+                    <Link
+                      href={`/profile/${entry.userId}`}
+                      className="hover:underline"
+                    >
+                      {entry.name ?? entry.email}
+                    </Link>
                     {isCurrentUser && (
                       <span className="ml-2 text-xs text-zinc-400">(you)</span>
                     )}
