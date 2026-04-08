@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-04-07 (phase 3 task 4 — tie-breaker questions)
+
+**Schema changes:**
+- Added `TiebreakerQuestion` model: `id`, `slateId`, `question`, `answer?` (nullable Int), `position` (auto-assigned)
+- Added `TiebreakerResponse` model: `id`, `userId`, `questionId`, `response` (Int); unique `(userId, questionId)`
+- Added `tiebreakerQuestions` relation to `Slate`; `tiebreakerResponses` relation to `User`
+- Migration: `20260408022201_add_tiebreaker_models`
+
+**API additions:**
+- `GET /api/leagues/[leagueId]/slates/[slateId]/tiebreakers` — member; returns questions ordered by position with `myResponse`; `answer` + full `responses` array included only when slate is `completed`
+- `POST /api/leagues/[leagueId]/slates/[slateId]/tiebreakers` — admin; creates a question (`question` text); position auto-assigned as max + 1
+- `PATCH /api/leagues/[leagueId]/slates/[slateId]/tiebreakers/[questionId]` — admin; sets the correct `answer` (integer)
+- `POST /api/leagues/[leagueId]/slates/[slateId]/tiebreakers/[questionId]/responses` — member; upserts numeric response; 400 if past lock deadline (30 min before first game in slate)
+
+**Leaderboard changes (`GET /api/leagues/[leagueId]/leaderboard`):**
+- When `?slateId=` is provided and the slate has questions with answers, applies Price Is Right proximity scoring as a secondary sort key: score per question = `1 / (1 + (answer - response))` for under/exact; `0` for over. Scores summed across questions.
+- Members who responded at least once rank above those who did not (tertiary key before proximity score).
+- Overall leaderboard (no slateId) is unchanged.
+- Leaderboard response now includes `tiebreakerScore` and `hasResponded` fields.
+
+**Frontend:**
+- Active slate view: tie-breaker section appears below games; numeric inputs per question; Submit/Update button; disabled after lock deadline; pre-populated with existing response
+- Completed slate view: tie-breaker section shows correct answer badge, each member's response, over/exact highlighting
+- Admin page: expanded slate panel now shows "Tie-breaker Questions" section — add new questions via text input, set correct answer per question via number input
+
+**Tests:** 31 new tests (171 total passing) across 3 new test files + updated leaderboard test
+
 ## 2026-04-07 (phase 3 task 3 — user profiles)
 
 **API additions:**

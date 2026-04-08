@@ -9,6 +9,8 @@ vi.mock("@/lib/db", () => ({
     leagueMember: { findUnique: vi.fn(), findMany: vi.fn() },
     game: { findMany: vi.fn() },
     slate: { findUnique: vi.fn() },
+    tiebreakerQuestion: { findMany: vi.fn() },
+    tiebreakerResponse: { findMany: vi.fn() },
   },
 }));
 
@@ -21,6 +23,8 @@ const mockMemberFindUnique = prisma.leagueMember.findUnique as ReturnType<typeof
 const mockMemberFindMany = prisma.leagueMember.findMany as ReturnType<typeof vi.fn>;
 const mockGameFindMany = prisma.game.findMany as ReturnType<typeof vi.fn>;
 const mockSlateFindUnique = prisma.slate.findUnique as ReturnType<typeof vi.fn>;
+const mockTbQuestionFindMany = prisma.tiebreakerQuestion.findMany as ReturnType<typeof vi.fn>;
+const mockTbResponseFindMany = prisma.tiebreakerResponse.findMany as ReturnType<typeof vi.fn>;
 
 const leagueId = "league-1";
 const slateId = "slate-1";
@@ -304,6 +308,7 @@ describe("GET /api/leagues/[leagueId]/leaderboard?slateId=", () => {
     mockSlateFindUnique.mockResolvedValue(fakeSlate);
     mockMemberFindMany.mockResolvedValue(fakeMembers);
     mockGameFindMany.mockResolvedValue([]);
+    mockTbQuestionFindMany.mockResolvedValue([]);
 
     await GET(fakeRequestWithSlate, fakeContext);
 
@@ -318,6 +323,7 @@ describe("GET /api/leagues/[leagueId]/leaderboard?slateId=", () => {
     mockMemberFindUnique.mockResolvedValue(fakeMembership);
     mockSlateFindUnique.mockResolvedValue(fakeSlate);
     mockMemberFindMany.mockResolvedValue(fakeMembers);
+    mockTbQuestionFindMany.mockResolvedValue([]);
     mockGameFindMany.mockResolvedValue([
       {
         id: "game-1",
@@ -349,6 +355,7 @@ describe("GET /api/leagues/[leagueId]/leaderboard?slateId=", () => {
     mockMemberFindUnique.mockResolvedValue(fakeMembership);
     mockSlateFindUnique.mockResolvedValue(fakeSlate);
     mockMemberFindMany.mockResolvedValue(fakeMembers);
+    mockTbQuestionFindMany.mockResolvedValue([]);
     mockGameFindMany.mockResolvedValue([]);
 
     const response = await GET(fakeRequestWithSlate, fakeContext);
@@ -357,5 +364,93 @@ describe("GET /api/leagues/[leagueId]/leaderboard?slateId=", () => {
     expect(response.status).toBe(200);
     expect(body).toHaveLength(2);
     body.forEach((entry: { correct: number }) => expect(entry.correct).toBe(0));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tiebreaker secondary sort
+// ---------------------------------------------------------------------------
+
+describe("GET leaderboard — tiebreaker proximity scoring", () => {
+  function setup(questions: unknown[], responses: unknown[]) {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "alice@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockSlateFindUnique.mockResolvedValue(fakeSlate);
+    mockMemberFindMany.mockResolvedValue(fakeMembers);
+    mockGameFindMany.mockResolvedValue([]);
+    mockTbQuestionFindMany.mockResolvedValue(questions);
+    mockTbResponseFindMany.mockResolvedValue(responses);
+  }
+
+  it("breaks a pick-count tie: responder beats non-responder", async () => {
+    setup(
+      [{ id: "q-1", answer: 50 }],
+      [{ userId: "user-1", questionId: "q-1", response: 48 }],
+      // user-2 has no response
+    );
+    const response = await GET(fakeRequestWithSlate, fakeContext);
+    const body = await response.json();
+    const alice = body.find((e: { userId: string }) => e.userId === "user-1");
+    const bob = body.find((e: { userId: string }) => e.userId === "user-2");
+    expect(alice.rank).toBe(1);
+    expect(bob.rank).toBe(2);
+  });
+
+  it("breaks a pick-count tie: closer answer wins (both under)", async () => {
+    setup(
+      [{ id: "q-1", answer: 50 }],
+      [
+        { userId: "user-1", questionId: "q-1", response: 49 }, // 1 away → score 0.5
+        { userId: "user-2", questionId: "q-1", response: 45 }, // 5 away → score ~0.167
+      ],
+    );
+    const response = await GET(fakeRequestWithSlate, fakeContext);
+    const body = await response.json();
+    const alice = body.find((e: { userId: string }) => e.userId === "user-1");
+    const bob = body.find((e: { userId: string }) => e.userId === "user-2");
+    expect(alice.rank).toBe(1);
+    expect(bob.rank).toBe(2);
+  });
+
+  it("over-guess scores 0 — under-guess (even far) beats over-guess", async () => {
+    setup(
+      [{ id: "q-1", answer: 50 }],
+      [
+        { userId: "user-1", questionId: "q-1", response: 51 }, // over → 0
+        { userId: "user-2", questionId: "q-1", response: 1 },  // far under → > 0
+      ],
+    );
+    const response = await GET(fakeRequestWithSlate, fakeContext);
+    const body = await response.json();
+    const alice = body.find((e: { userId: string }) => e.userId === "user-1");
+    const bob = body.find((e: { userId: string }) => e.userId === "user-2");
+    expect(bob.rank).toBe(1);
+    expect(alice.rank).toBe(2);
+  });
+
+  it("exact answer scores maximum (1.0 per question)", async () => {
+    setup(
+      [{ id: "q-1", answer: 50 }],
+      [
+        { userId: "user-1", questionId: "q-1", response: 50 }, // exact → 1.0
+        { userId: "user-2", questionId: "q-1", response: 49 }, // 1 away → 0.5
+      ],
+    );
+    const response = await GET(fakeRequestWithSlate, fakeContext);
+    const body = await response.json();
+    const alice = body.find((e: { userId: string }) => e.userId === "user-1");
+    expect(alice.rank).toBe(1);
+    expect(alice.tiebreakerScore).toBeCloseTo(1.0);
+  });
+
+  it("does not apply tiebreaker scoring to overall leaderboard (no slateId)", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "alice@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(fakeMembership);
+    mockMemberFindMany.mockResolvedValue(fakeMembers);
+    mockGameFindMany.mockResolvedValue([]);
+    // tiebreakerQuestion.findMany should NOT be called for overall leaderboard
+    const response = await GET(fakeRequest, fakeContext);
+    expect(response.status).toBe(200);
+    expect(mockTbQuestionFindMany).not.toHaveBeenCalled();
   });
 });

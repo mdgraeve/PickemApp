@@ -23,6 +23,12 @@ type SportGame = {
   scheduledAt: string;
   season: string;
 };
+type TiebreakerQuestion = {
+  id: string;
+  question: string;
+  position: number;
+  answer: number | null;
+};
 
 function formatDateTime(dt: string): string {
   return new Date(dt).toLocaleString("en-US", {
@@ -56,6 +62,14 @@ export default function AdminPage() {
   const [slateGames, setSlateGames] = useState<Record<string, Game[]>>({});
   const [scores, setScores] = useState<Record<string, { home: string; away: string }>>({});
   const [savingScore, setSavingScore] = useState<string | null>(null);
+
+  // Tiebreaker state
+  const [slateQuestions, setSlateQuestions] = useState<Record<string, TiebreakerQuestion[]>>({});
+  const [newQuestion, setNewQuestion] = useState<Record<string, string>>({}); // slateId -> draft text
+  const [addingQuestion, setAddingQuestion] = useState<string | null>(null); // slateId
+  const [questionError, setQuestionError] = useState<Record<string, string>>({});
+  const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({}); // questionId -> draft answer
+  const [savingAnswer, setSavingAnswer] = useState<string | null>(null); // questionId
 
   // Add games panel
   const [addGamesSlateId, setAddGamesSlateId] = useState<string | null>(null);
@@ -95,16 +109,85 @@ export default function AdminPage() {
   }, [leagueId, status, router]);
 
   async function loadSlateGames(slateId: string) {
-    if (slateGames[slateId]) {
-      setExpandedSlateId((prev) => (prev === slateId ? null : slateId));
+    // Toggle collapse if already expanded
+    if (expandedSlateId === slateId) {
+      setExpandedSlateId(null);
       return;
     }
-    const res = await fetch(`/api/leagues/${leagueId}/slates/${slateId}/games`);
-    if (res.ok) {
-      const data = await res.json();
+    const [gamesRes, tbRes] = await Promise.all([
+      slateGames[slateId] ? Promise.resolve(null) : fetch(`/api/leagues/${leagueId}/slates/${slateId}/games`),
+      slateQuestions[slateId] ? Promise.resolve(null) : fetch(`/api/leagues/${leagueId}/slates/${slateId}/tiebreakers`),
+    ]);
+    if (gamesRes?.ok) {
+      const data = await gamesRes.json();
       setSlateGames((prev) => ({ ...prev, [slateId]: data.games }));
     }
-    setExpandedSlateId((prev) => (prev === slateId ? null : slateId));
+    if (tbRes?.ok) {
+      const data: TiebreakerQuestion[] = await tbRes.json();
+      setSlateQuestions((prev) => ({ ...prev, [slateId]: data }));
+    }
+    setExpandedSlateId(slateId);
+  }
+
+  async function handleAddQuestion(slateId: string) {
+    const text = newQuestion[slateId]?.trim();
+    if (!text) return;
+    setAddingQuestion(slateId);
+    setQuestionError((prev) => ({ ...prev, [slateId]: "" }));
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/slates/${slateId}/tiebreakers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setQuestionError((prev) => ({ ...prev, [slateId]: data.error ?? "Failed to add question" }));
+        return;
+      }
+      setSlateQuestions((prev) => ({
+        ...prev,
+        [slateId]: [...(prev[slateId] ?? []), data],
+      }));
+      setNewQuestion((prev) => ({ ...prev, [slateId]: "" }));
+    } catch {
+      setQuestionError((prev) => ({ ...prev, [slateId]: "Something went wrong" }));
+    } finally {
+      setAddingQuestion(null);
+    }
+  }
+
+  async function handleSetAnswer(slateId: string, questionId: string) {
+    const raw = answerInputs[questionId];
+    const value = parseInt(raw, 10);
+    if (isNaN(value)) return;
+    setSavingAnswer(questionId);
+    try {
+      const res = await fetch(
+        `/api/leagues/${leagueId}/slates/${slateId}/tiebreakers/${questionId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answer: value }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error ?? "Failed to set answer");
+        return;
+      }
+      setSlateQuestions((prev) => ({
+        ...prev,
+        [slateId]: (prev[slateId] ?? []).map((q) =>
+          q.id === questionId ? { ...q, answer: data.answer } : q,
+        ),
+      }));
+      setAnswerInputs((prev) => ({ ...prev, [questionId]: "" }));
+    } catch {
+      alert("Something went wrong");
+    } finally {
+      setSavingAnswer(null);
+    }
   }
 
   async function handleCreateSlate(e: React.FormEvent) {
@@ -374,6 +457,69 @@ export default function AdminPage() {
                           })}
                         </ul>
                       )}
+
+                      {/* Tiebreaker questions */}
+                      <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
+                        <p className="text-sm font-medium">Tie-breaker Questions</p>
+                        {(slateQuestions[slate.id] ?? []).length === 0 ? (
+                          <p className="text-sm text-zinc-400">No questions yet.</p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {(slateQuestions[slate.id] ?? []).map((q) => (
+                              <li key={q.id} className="space-y-1">
+                                <p className="text-sm">{q.question}</p>
+                                {q.answer !== null ? (
+                                  <p className="text-xs text-zinc-500">
+                                    Answer: <span className="font-medium">{q.answer}</span>
+                                  </p>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      placeholder="Correct answer"
+                                      value={answerInputs[q.id] ?? ""}
+                                      onChange={(e) =>
+                                        setAnswerInputs((prev) => ({ ...prev, [q.id]: e.target.value }))
+                                      }
+                                      className="w-32 rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+                                    />
+                                    <button
+                                      disabled={savingAnswer === q.id || !answerInputs[q.id]}
+                                      onClick={() => handleSetAnswer(slate.id, q.id)}
+                                      className="rounded-lg border border-zinc-300 px-3 py-1 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+                                    >
+                                      {savingAnswer === q.id ? "Saving..." : "Set answer"}
+                                    </button>
+                                  </div>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {/* Add question form */}
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            placeholder="New question (e.g. Total combined score?)"
+                            value={newQuestion[slate.id] ?? ""}
+                            onChange={(e) =>
+                              setNewQuestion((prev) => ({ ...prev, [slate.id]: e.target.value }))
+                            }
+                            className="flex-1 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+                          />
+                          <button
+                            disabled={addingQuestion === slate.id || !newQuestion[slate.id]?.trim()}
+                            onClick={() => handleAddQuestion(slate.id)}
+                            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+                          >
+                            {addingQuestion === slate.id ? "Adding..." : "+ Add"}
+                          </button>
+                        </div>
+                        {questionError[slate.id] && (
+                          <p className="text-xs text-red-500">{questionError[slate.id]}</p>
+                        )}
+                      </div>
 
                       {/* Add games button */}
                       {addGamesSlateId === slate.id ? (

@@ -63,11 +63,12 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts       Account[]
-  sessions       Session[]
-  createdLeagues League[]       @relation("LeagueCreator")
-  memberships    LeagueMember[]
-  picks          Pick[]
+  accounts              Account[]
+  sessions              Session[]
+  createdLeagues        League[]             @relation("LeagueCreator")
+  memberships           LeagueMember[]
+  picks                 Pick[]
+  tiebreakerResponses   TiebreakerResponse[]
 }
 
 model League {
@@ -130,8 +131,9 @@ model Slate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  games  Game[]
+  league              League               @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  games               Game[]
+  tiebreakerQuestions TiebreakerQuestion[]
 
   @@unique([leagueId, position])
   @@index([leagueId])
@@ -172,4 +174,37 @@ model Pick {
 
   @@unique([userId, gameId])
   @@index([gameId])
+}
+
+// TiebreakerQuestion belongs to a Slate. answer is nullable until the admin
+// records the correct value after the slate is complete.
+model TiebreakerQuestion {
+  id        String   @id @default(cuid())
+  slateId   String
+  question  String
+  answer    Int?
+  position  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  slate     Slate                @relation(fields: [slateId], references: [id], onDelete: Cascade)
+  responses TiebreakerResponse[]
+
+  @@index([slateId])
+}
+
+// TiebreakerResponse records one member's numeric guess for one question.
+model TiebreakerResponse {
+  id         String   @id @default(cuid())
+  userId     String
+  questionId String
+  response   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question TiebreakerQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([questionId])
 }

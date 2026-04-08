@@ -23,6 +23,21 @@ type Game = {
   myPick: string | null;
 };
 
+type TiebreakerMemberResponse = {
+  userId: string;
+  name: string;
+  response: number;
+};
+
+type TiebreakerQuestion = {
+  id: string;
+  question: string;
+  position: number;
+  answer: number | null;
+  myResponse: number | null;
+  responses: TiebreakerMemberResponse[];
+};
+
 function formatGameTime(startTime: string): string {
   return new Date(startTime).toLocaleString("en-US", {
     weekday: "short",
@@ -50,6 +65,7 @@ export default function SlateHistoryPage() {
 
   const [slate, setSlate] = useState<Slate | null>(null);
   const [games, setGames] = useState<Game[]>([]);
+  const [tiebreakers, setTiebreakers] = useState<TiebreakerQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,17 +76,23 @@ export default function SlateHistoryPage() {
     }
     if (status !== "authenticated") return;
 
-    fetch(`/api/leagues/${leagueId}/slates/${slateId}/games`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const d = await res.json().catch(() => ({}));
-          throw new Error(d.error ?? `Error ${res.status}`);
+    Promise.all([
+      fetch(`/api/leagues/${leagueId}/slates/${slateId}/games`),
+      fetch(`/api/leagues/${leagueId}/slates/${slateId}/tiebreakers`),
+    ])
+      .then(async ([gamesRes, tbRes]) => {
+        if (!gamesRes.ok) {
+          const d = await gamesRes.json().catch(() => ({}));
+          throw new Error(d.error ?? `Error ${gamesRes.status}`);
         }
-        return res.json();
+        const gamesData = await gamesRes.json();
+        const tbData: TiebreakerQuestion[] = tbRes.ok ? await tbRes.json() : [];
+        return { gamesData, tbData };
       })
-      .then((data) => {
-        setSlate(data.slate);
-        setGames(data.games);
+      .then(({ gamesData, tbData }) => {
+        setSlate(gamesData.slate);
+        setGames(gamesData.games);
+        setTiebreakers(tbData);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
@@ -106,6 +128,52 @@ export default function SlateHistoryPage() {
           <span className="text-sm text-zinc-500 capitalize">{slate.status}</span>
         )}
       </div>
+
+      {tiebreakers.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-base font-semibold text-zinc-700 dark:text-zinc-300">Tie-breaker</h2>
+          <ul className="space-y-3">
+            {tiebreakers.map((q) => (
+              <li
+                key={q.id}
+                className="rounded-xl border border-zinc-200 px-5 py-4 space-y-3 dark:border-zinc-800"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-sm font-medium">{q.question}</p>
+                  {q.answer !== null && (
+                    <span className="shrink-0 rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
+                      Answer: {q.answer}
+                    </span>
+                  )}
+                </div>
+                {q.responses.length > 0 ? (
+                  <ul className="space-y-1">
+                    {q.responses.map((r) => {
+                      const isOver = q.answer !== null && r.response > q.answer;
+                      const isExact = q.answer !== null && r.response === q.answer;
+                      return (
+                        <li
+                          key={r.userId}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <span className="text-zinc-600 dark:text-zinc-400">{r.name}</span>
+                          <span className={`font-medium ${isExact ? "text-green-600 dark:text-green-400" : isOver ? "text-red-500" : ""}`}>
+                            {r.response}
+                            {isOver && <span className="ml-1 text-xs font-normal text-red-400">(over)</span>}
+                            {isExact && <span className="ml-1 text-xs font-normal text-green-500">(exact!)</span>}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-zinc-400">No responses submitted.</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {games.length === 0 ? (
         <p className="text-zinc-500">No games in this slate.</p>

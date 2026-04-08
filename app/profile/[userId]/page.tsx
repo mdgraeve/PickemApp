@@ -102,7 +102,7 @@ export default function ProfilePage() {
   const currentUserId = (session?.user as { id?: string } | undefined)?.id;
   const isSelf = currentUserId === userId;
 
-  const displayName = profile.name ?? profile.email;
+  const displayName = profile.name ?? "Anonymous";
   const totalCorrect = profile.stats.reduce((sum, s) => sum + s.correctPicks, 0);
   const totalPicks = profile.stats.reduce((sum, s) => sum + s.totalPicks, 0);
   const overallAccuracy = totalPicks > 0 ? Math.round((totalCorrect / totalPicks) * 100) : null;

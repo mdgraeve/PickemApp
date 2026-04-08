@@ -20,6 +20,7 @@ Key directories:
 - `app/api/leagues/` -- REST API routes (leagues, games, picks, leaderboard, slates)
 - `app/api/sport-games/` -- master schedule query endpoint
 - `app/api/users/` -- user profile and settings routes (`GET /[userId]`, `PATCH /me`)
+- `app/api/leagues/[leagueId]/slates/[slateId]/tiebreakers/` -- tie-breaker question CRUD and response submission
 - `app/leagues/` -- UI pages for league features (home, games/picks, leaderboard, slate history, admin)
 - `app/profile/` -- user profile page (`/profile/[userId]`)
 - `app/settings/` -- current user settings page

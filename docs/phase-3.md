@@ -1,6 +1,6 @@
 # Phase 3 -- League Management
 
-**Status: In progress**
+**Status: Complete**
 
 Phase 3 introduces league administration and personalization. By the end of this phase, the app is usable end-to-end: UI gaps from Phases 1 and 2 are filled, admins can manage their leagues (rename, manage members), users have profile pages with pick history, and each slate supports numeric tie-breaker questions whose answers factor into leaderboard tie-breaking.
 
@@ -105,7 +105,7 @@ Any authenticated user who shares at least one league with the target user can v
 
 ### 4. Tie-breaker questions
 
-**Status: Not started**
+**Status: Complete**
 
 A slate can have one or more tie-breaker questions. Each question is numeric (e.g. "Total combined score in Game 3?"). Members submit a response before the lock deadline (30 minutes before the slate's first game starts). After the slate completes, the admin sets the correct answer. Proximity determines tie-breaking order (Price Is Right rules: closest without going over wins; if all go over, closest wins).
 
@@ -142,10 +142,10 @@ Tie-breaker responses use the same lock deadline as picks: `min(game.startTime i
 
 | Change | Model | Details | Status |
 |---|---|---|---|
-| Add `TiebreakerQuestion` | new model | `id`, `slateId`, `question`, `answer?`, `position` | Not started |
-| Add `TiebreakerResponse` | new model | `id`, `userId`, `questionId`, `response`; unique `(userId, questionId)` | Not started |
-| Add relation | `Slate` | `tiebreakerQuestions TiebreakerQuestion[]` | Not started |
-| Add relation | `User` | `tiebreakerResponses TiebreakerResponse[]` | Not started |
+| Add `TiebreakerQuestion` | new model | `id`, `slateId`, `question`, `answer?`, `position` | Complete |
+| Add `TiebreakerResponse` | new model | `id`, `userId`, `questionId`, `response`; unique `(userId, questionId)` | Complete |
+| Add relation | `Slate` | `tiebreakerQuestions TiebreakerQuestion[]` | Complete |
+| Add relation | `User` | `tiebreakerResponses TiebreakerResponse[]` | Complete |
 
 Tasks 1 (UI gaps), 2 (league settings), and 3 (user profiles) require no schema changes.
 
@@ -168,6 +168,6 @@ Custom game lists were deferred out of Phase 3 — extend `prisma/seed.ts` if sc
 | Member removal | No | No `DELETE /members/[userId]` route |
 | User profile page | Yes | `/profile/[userId]`; stats table, pick history, edit profile link |
 | User name update | Yes | `PATCH /api/users/me`; `/settings` page |
-| Tie-breaker questions | No | Schema and API not yet built |
-| Tie-breaker leaderboard integration | No | Leaderboard does not apply proximity scoring |
+| Tie-breaker questions | Yes | Schema, 4 API routes, admin UI, member response inputs |
+| Tie-breaker leaderboard integration | Yes | Per-slate leaderboard applies Price Is Right proximity scoring |
 | Custom game lists | Deferred | Out of scope for Phase 3; extend seed data instead |

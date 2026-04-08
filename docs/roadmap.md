@@ -18,7 +18,7 @@ See [phase-2.md](phase-2.md) for full goals, tasks, and current status.
 - **Sequential slate release** -- next slate unlocks automatically when the current slate is fully scored
 - **Per-slate leaderboard** -- results per slate in addition to overall standings
 
-## Phase 3 -- League Management (in progress)
+## Phase 3 -- League Management (complete)
 
 See [phase-3.md](phase-3.md) for full goals, tasks, and current status.
 
