@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-04-08 (phase 4 tasks 3/5/6 — admin restyle, loading skeletons, empty states)
+
+**Visual changes (no schema or API changes):**
+
+- **Admin page full restyle** (`app/leagues/[leagueId]/admin/page.tsx`):
+  - Replaced all `zinc`/light-mode classes with slate dark equivalents
+  - Removed `← Back` link (nav bar covers navigation)
+  - Widened container from `max-w-2xl` to `max-w-4xl`
+  - Primary buttons now use `bg-blue-600 hover:bg-blue-500`
+  - Slate cards use `rounded-2xl border-slate-800 bg-slate-900` with animated chevron expand/collapse
+  - Score inputs, tiebreaker inputs, and add-games list all styled dark
+  - Status badges use colour-coded pills (blue = active, green = completed, slate = upcoming)
+  - Empty slates state styled as a proper card with descriptive copy
+  - Game list checkboxes use `accent-blue-500` for brand consistency
+
+- **Loading skeletons applied everywhere** (Task 5 complete):
+  - All pages replaced `<p className="text-slate-500">Loading...</p>` with `<PageLoader />` from `app/components/skeleton.tsx`
+  - Home page league list uses `<SkeletonCard>` while fetching instead of text
+  - Pages updated: home, league picks, leaderboard, slate history, admin, league settings, new league, profile, user settings
+
+- **Phase 4 Tasks 3, 5, 6 marked complete** in `docs/phase-4.md`
+
 ## 2026-04-07 (phase 3 task 4 — tie-breaker questions)
 
 **Schema changes:**

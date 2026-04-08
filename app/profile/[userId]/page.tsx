@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { PageLoader } from "@/app/components/skeleton";
 
 type StatRow = {
   leagueId: string;
@@ -81,18 +82,12 @@ export default function ProfilePage() {
       .finally(() => setLoading(false));
   }, [userId, status, router]);
 
-  if (status === "loading" || loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
-      </div>
-    );
-  }
+  if (status === "loading" || loading) return <PageLoader />;
 
   if (error) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-red-500">{error}</p>
+        <p className="text-red-400">{error}</p>
       </div>
     );
   }
@@ -108,80 +103,75 @@ export default function ProfilePage() {
   const overallAccuracy = totalPicks > 0 ? Math.round((totalCorrect / totalPicks) * 100) : null;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 space-y-10">
+    <div className="mx-auto max-w-4xl px-4 py-10 space-y-10">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
-            ← Home
-          </Link>
-          <h1 className="text-2xl font-bold tracking-tight">{displayName}</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight text-white">{displayName}</h1>
+          <p className="text-sm text-slate-400">Joined {formatDate(profile.createdAt)}</p>
         </div>
         {isSelf && (
           <Link
             href="/settings"
-            className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            className="shrink-0 rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
           >
             Edit profile
           </Link>
         )}
       </div>
 
-      {/* Meta */}
-      <div className="flex gap-6 text-sm text-zinc-500">
-        <span>Joined {formatDate(profile.createdAt)}</span>
-      </div>
-
-      {/* Overall stat summary */}
+      {/* Overall stats */}
       {totalPicks > 0 && (
-        <div className="flex gap-8">
-          <div className="text-center">
-            <p className="text-2xl font-bold">{totalCorrect}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Correct picks</p>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-center">
+            <p className="text-3xl font-bold text-white">{totalCorrect}</p>
+            <p className="mt-1 text-xs text-slate-400">Correct picks</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">{totalPicks}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Total picks</p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-center">
+            <p className="text-3xl font-bold text-white">{totalPicks}</p>
+            <p className="mt-1 text-xs text-slate-400">Total picks</p>
           </div>
-          {overallAccuracy !== null && (
-            <div className="text-center">
-              <p className="text-2xl font-bold">{overallAccuracy}%</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Accuracy</p>
-            </div>
-          )}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-center">
+            <p className="text-3xl font-bold text-white">
+              {overallAccuracy !== null ? `${overallAccuracy}%` : "—"}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">Accuracy</p>
+          </div>
         </div>
       )}
 
       {/* Per-league stats */}
       {profile.stats.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-base font-semibold">Stats by League</h2>
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-white">Stats by League</h2>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500 dark:border-zinc-800">
-                  <th className="px-4 py-2 font-medium">League</th>
-                  <th className="px-4 py-2 font-medium">Sport</th>
-                  <th className="px-4 py-2 font-medium text-right">Correct</th>
-                  <th className="px-4 py-2 font-medium text-right">Total</th>
-                  <th className="px-4 py-2 font-medium text-right">Accuracy</th>
+                <tr className="border-b border-slate-800 text-left text-slate-500">
+                  <th className="px-5 py-3 font-medium">League</th>
+                  <th className="px-5 py-3 font-medium hidden sm:table-cell">Sport</th>
+                  <th className="px-5 py-3 font-medium text-right">Correct</th>
+                  <th className="px-5 py-3 font-medium text-right">Total</th>
+                  <th className="px-5 py-3 font-medium text-right">Accuracy</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <tbody className="divide-y divide-slate-800/60">
                 {profile.stats.map((row) => (
-                  <tr key={row.leagueId}>
-                    <td className="px-4 py-2">
+                  <tr key={row.leagueId} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="px-5 py-3">
                       <Link
                         href={`/leagues/${row.leagueId}`}
-                        className="text-zinc-700 hover:underline dark:text-zinc-300"
+                        className="font-medium text-white hover:text-blue-400 transition"
                       >
                         {row.leagueName}
                       </Link>
                     </td>
-                    <td className="px-4 py-2 text-zinc-500">{row.sport ?? "—"}</td>
-                    <td className="px-4 py-2 text-right">{row.correctPicks}</td>
-                    <td className="px-4 py-2 text-right">{row.totalPicks}</td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-5 py-3 text-slate-400 hidden sm:table-cell">
+                      {row.sport ?? "—"}
+                    </td>
+                    <td className="px-5 py-3 text-right text-white font-medium">{row.correctPicks}</td>
+                    <td className="px-5 py-3 text-right text-slate-400">{row.totalPicks}</td>
+                    <td className="px-5 py-3 text-right text-slate-400">
                       {row.accuracy !== null ? `${row.accuracy}%` : "—"}
                     </td>
                   </tr>
@@ -194,21 +184,21 @@ export default function ProfilePage() {
 
       {/* Recent pick history */}
       {profile.pickHistory.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-base font-semibold">Recent Picks</h2>
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-white">Recent Picks</h2>
           <ul className="space-y-2">
             {profile.pickHistory.map((pick) => {
               const isScored = pick.isCorrect !== null;
               return (
                 <li
                   key={pick.gameId}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+                  className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm"
                 >
                   <div className="min-w-0 space-y-0.5">
-                    <p className="truncate font-medium">
+                    <p className="truncate font-medium text-white">
                       {pick.awayTeam} @ {pick.homeTeam}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-slate-400">
                       {pick.leagueName}
                       {pick.slateName ? ` · ${pick.slateName}` : ""}
                       {" · "}
@@ -216,21 +206,21 @@ export default function ProfilePage() {
                     </p>
                   </div>
                   <div className="ml-4 flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-zinc-500">Picked</span>
-                    <span className="font-medium">{pick.pickedTeam}</span>
+                    <span className="text-xs text-slate-500">Picked</span>
+                    <span className="font-medium text-white">{pick.pickedTeam}</span>
                     {isScored && (
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                           pick.isCorrect
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            ? "bg-green-900/40 text-green-400"
+                            : "bg-red-900/40 text-red-400"
                         }`}
                       >
                         {pick.isCorrect ? "Correct" : "Wrong"}
                       </span>
                     )}
                     {!isScored && pick.homeScore === null && (
-                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">
+                      <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
                         Pending
                       </span>
                     )}
@@ -243,7 +233,9 @@ export default function ProfilePage() {
       )}
 
       {profile.stats.length === 0 && profile.pickHistory.length === 0 && (
-        <p className="text-zinc-500">No picks submitted yet.</p>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 px-6 py-10 text-center">
+          <p className="text-slate-400">No picks submitted yet.</p>
+        </div>
       )}
     </div>
   );

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import { PageLoader } from "@/app/components/skeleton";
 
 const SPORTS = ["NFL", "NBA", "MLB", "NHL", "NCAAF", "NCAAB"] as const;
 
@@ -37,24 +37,20 @@ export default function LeagueSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Rename form
   const [newName, setNewName] = useState("");
   const [nameSubmitting, setNameSubmitting] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSuccess, setNameSuccess] = useState(false);
 
-  // Sport form
   const [newSport, setNewSport] = useState("");
   const [sportSubmitting, setSportSubmitting] = useState(false);
   const [sportError, setSportError] = useState<string | null>(null);
   const [sportSuccess, setSportSuccess] = useState(false);
 
-  // Invite code copy
   const [copied, setCopied] = useState(false);
 
-  // Member actions
   const [memberActionError, setMemberActionError] = useState<string | null>(null);
-  const [memberActionPending, setMemberActionPending] = useState<string | null>(null); // userId
+  const [memberActionPending, setMemberActionPending] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -199,18 +195,12 @@ export default function LeagueSettingsPage() {
     }
   }
 
-  if (status === "loading" || loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
-      </div>
-    );
-  }
+  if (status === "loading" || loading) return <PageLoader />;
 
   if (error) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-red-500">{error}</p>
+        <p className="text-red-400">{error}</p>
       </div>
     );
   }
@@ -218,58 +208,48 @@ export default function LeagueSettingsPage() {
   const currentUserId = (session?.user as { id?: string } | undefined)?.id;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 space-y-10">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/leagues/${leagueId}`}
-            className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-          >
-            ← Back
-          </Link>
-          <h1 className="text-2xl font-bold tracking-tight">League Settings</h1>
-        </div>
-      </div>
+    <div className="mx-auto max-w-4xl px-4 py-10 space-y-10">
+      <h1 className="text-3xl font-bold tracking-tight text-white">League Settings</h1>
 
       {/* Rename */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">League Name</h2>
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold text-white">League Name</h2>
         <form onSubmit={handleRename} className="flex gap-2">
           <input
             type="text"
             value={newName}
             onChange={(e) => { setNewName(e.target.value); setNameSuccess(false); }}
-            className="flex-1 rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:border-zinc-700"
+            className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             placeholder="League name"
             required
           />
           <button
             type="submit"
             disabled={nameSubmitting || newName.trim() === league?.name}
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-40"
           >
             {nameSubmitting ? "Saving..." : "Rename"}
           </button>
         </form>
-        {nameError && <p className="text-sm text-red-500">{nameError}</p>}
-        {nameSuccess && <p className="text-sm text-green-600 dark:text-green-400">League renamed.</p>}
+        {nameError && <p className="text-sm text-red-400">{nameError}</p>}
+        {nameSuccess && <p className="text-sm text-green-400">League renamed.</p>}
       </section>
 
       {/* Sport */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Sport</h2>
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold text-white">Sport</h2>
         {hasSlates ? (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-slate-400">
             Sport cannot be changed after slates have been created.
-            Current sport: <span className="font-medium">{league?.sport}</span>
+            Current sport:{" "}
+            <span className="font-medium text-white">{league?.sport}</span>
           </p>
         ) : (
           <form onSubmit={handleSportChange} className="flex gap-2">
             <select
               value={newSport}
               onChange={(e) => { setNewSport(e.target.value); setSportSuccess(false); }}
-              className="flex-1 rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+              className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
               <option value="" disabled>Select sport</option>
               {SPORTS.map((s) => (
@@ -279,62 +259,62 @@ export default function LeagueSettingsPage() {
             <button
               type="submit"
               disabled={sportSubmitting || newSport === league?.sport || !newSport}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-40"
             >
               {sportSubmitting ? "Saving..." : "Update"}
             </button>
           </form>
         )}
-        {sportError && <p className="text-sm text-red-500">{sportError}</p>}
-        {sportSuccess && <p className="text-sm text-green-600 dark:text-green-400">Sport updated.</p>}
+        {sportError && <p className="text-sm text-red-400">{sportError}</p>}
+        {sportSuccess && <p className="text-sm text-green-400">Sport updated.</p>}
       </section>
 
       {/* Invite Code */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Invite Code</h2>
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold text-white">Invite Code</h2>
         <div className="flex items-center gap-2">
-          <code className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-mono dark:border-zinc-800 dark:bg-zinc-900">
+          <code className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-mono text-slate-300 tracking-wider">
             {league?.inviteCode}
           </code>
           <button
             onClick={copyInviteCode}
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+            className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
           >
             {copied ? "Copied!" : "Copy"}
           </button>
         </div>
-        <p className="text-xs text-zinc-500">Share this code with people you want to invite to the league.</p>
+        <p className="text-xs text-slate-500">Share this code with people you want to invite to the league.</p>
       </section>
 
       {/* Members */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Members ({members.length})</h2>
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold text-white">Members ({members.length})</h2>
         {memberActionError && (
-          <p className="text-sm text-red-500">{memberActionError}</p>
+          <p className="text-sm text-red-400">{memberActionError}</p>
         )}
-        <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden divide-y divide-slate-800">
           {members.map((member) => {
             const isCurrentUser = member.userId === currentUserId;
             const isPending = memberActionPending === member.userId;
             return (
-              <li key={member.id} className="flex items-center justify-between px-4 py-3">
+              <div key={member.id} className="flex items-center justify-between px-5 py-3.5">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
+                  <p className="truncate text-sm font-medium text-white">
                     {member.name ?? member.email}
                     {isCurrentUser && (
-                      <span className="ml-2 text-xs text-zinc-400">(you)</span>
+                      <span className="ml-2 text-xs text-slate-500">(you)</span>
                     )}
                   </p>
                   {member.name && (
-                    <p className="truncate text-xs text-zinc-500">{member.email}</p>
+                    <p className="truncate text-xs text-slate-500">{member.email}</p>
                   )}
                 </div>
                 <div className="ml-4 flex shrink-0 items-center gap-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       member.role === "admin"
-                        ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                        ? "bg-blue-900/50 text-blue-300"
+                        : "bg-slate-800 text-slate-400"
                     }`}
                   >
                     {member.role}
@@ -349,24 +329,24 @@ export default function LeagueSettingsPage() {
                             member.role === "admin" ? "member" : "admin",
                           )
                         }
-                        className="rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 disabled:opacity-40 dark:hover:bg-zinc-800"
+                        className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-white transition disabled:opacity-40"
                       >
                         {isPending ? "..." : member.role === "admin" ? "Demote" : "Promote"}
                       </button>
                       <button
                         disabled={isPending}
                         onClick={() => handleRemoveMember(member.userId)}
-                        className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50 disabled:opacity-40 dark:hover:bg-red-950/20"
+                        className="rounded px-2 py-1 text-xs text-red-400 hover:bg-red-950/30 transition disabled:opacity-40"
                       >
                         {isPending ? "..." : "Remove"}
                       </button>
                     </>
                   )}
                 </div>
-              </li>
+              </div>
             );
           })}
-        </ul>
+        </div>
       </section>
     </div>
   );

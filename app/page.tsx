@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { PageLoader, SkeletonCard } from "@/app/components/skeleton";
 
 type League = {
   id: string;
@@ -60,25 +61,21 @@ export default function Home() {
     }
   }
 
-  if (status === "loading") {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
-      </div>
-    );
-  }
+  if (status === "loading") return <PageLoader />;
 
   if (!session) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl font-bold tracking-tight">LockHub</h1>
-          <p className="text-zinc-500">Lock In. Win Big. Repeat.</p>
+      <div className="flex flex-1 items-center justify-center min-h-[calc(100vh-3.5rem)]">
+        <div className="text-center space-y-6 px-4">
+          <div className="space-y-2">
+            <h1 className="text-5xl font-bold tracking-tight text-white">LockHub</h1>
+            <p className="text-slate-400 text-lg">Lock In. Win Big. Repeat.</p>
+          </div>
           <Link
             href="/login"
-            className="inline-block rounded-lg bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            className="inline-block rounded-lg bg-blue-600 px-8 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
           >
-            Sign In
+            Get Started
           </Link>
         </div>
       </div>
@@ -86,47 +83,56 @@ export default function Home() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 space-y-8">
+    <div className="mx-auto max-w-4xl px-4 py-10 space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Your Leagues</h1>
-        <div className="flex items-center gap-4 text-sm text-zinc-500">
-          <Link href="/settings" className="hover:text-zinc-700 dark:hover:text-zinc-300">
-            Settings
-          </Link>
-          <button
-            onClick={() => signOut()}
-            className="hover:text-zinc-700 dark:hover:text-zinc-300"
-          >
-            Sign out
-          </button>
-        </div>
+        <h1 className="text-3xl font-bold tracking-tight text-white">Your Leagues</h1>
       </div>
 
       {loadingLeagues ? (
-        <p className="text-zinc-500">Loading leagues...</p>
+        <div className="space-y-3">
+          <SkeletonCard lines={1} />
+          <SkeletonCard lines={1} />
+        </div>
       ) : leagues.length === 0 ? (
-        <p className="text-zinc-500">
-          You haven&apos;t joined any leagues yet. Create one or join with an invite code.
-        </p>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 px-6 py-12 text-center space-y-4">
+          <p className="text-base font-semibold text-white">No leagues yet</p>
+          <p className="text-sm text-slate-400">Create a new league or join one with an invite code.</p>
+          <div className="flex justify-center gap-3 pt-2">
+            <Link
+              href="/leagues/new"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+            >
+              Create League
+            </Link>
+            <button
+              onClick={() => setShowJoin(true)}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+            >
+              Join with Code
+            </button>
+          </div>
+        </div>
       ) : (
         <ul className="space-y-3">
           {leagues.map((league) => (
             <li key={league.id}>
               <Link
                 href={`/leagues/${league.id}`}
-                className="flex items-center justify-between rounded-xl border border-zinc-200 px-5 py-4 hover:bg-zinc-50 transition-colors dark:border-zinc-800 dark:hover:bg-zinc-900"
+                className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 transition hover:border-slate-700 hover:bg-slate-800/60"
               >
-                <div className="space-y-0.5">
-                  <p className="font-medium">{league.name}</p>
-                  <p className="text-sm text-zinc-500">
+                <div className="space-y-0.5 min-w-0">
+                  <p className="font-semibold text-white truncate">{league.name}</p>
+                  <p className="text-sm text-slate-400">
                     {league.memberCount} member{league.memberCount !== 1 ? "s" : ""}
                     {league.role === "admin" && (
-                      <span className="ml-2 text-xs text-zinc-400">admin</span>
+                      <span className="ml-2 rounded-full bg-blue-900/50 px-2 py-0.5 text-xs font-medium text-blue-300">
+                        admin
+                      </span>
                     )}
                   </p>
                 </div>
                 {league.sport && (
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                  <span className="ml-4 shrink-0 rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-300">
                     {league.sport}
                   </span>
                 )}
@@ -136,20 +142,22 @@ export default function Home() {
         </ul>
       )}
 
-      <div className="flex gap-3">
-        <Link
-          href="/leagues/new"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-        >
-          Create league
-        </Link>
-        <button
-          onClick={() => setShowJoin((v) => !v)}
-          className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
-        >
-          Join with invite code
-        </button>
-      </div>
+      {leagues.length > 0 && (
+        <div className="flex gap-3">
+          <Link
+            href="/leagues/new"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+          >
+            Create league
+          </Link>
+          <button
+            onClick={() => setShowJoin((v) => !v)}
+            className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+          >
+            Join with invite code
+          </button>
+        </div>
+      )}
 
       {showJoin && (
         <form onSubmit={handleJoin} className="flex gap-2 items-start">
@@ -160,14 +168,14 @@ export default function Home() {
               onChange={(e) => setJoinCode(e.target.value)}
               placeholder="Invite code"
               required
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
-            {joinError && <p className="text-sm text-red-500">{joinError}</p>}
+            {joinError && <p className="text-sm text-red-400">{joinError}</p>}
           </div>
           <button
             type="submit"
             disabled={joining}
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
           >
             {joining ? "Joining..." : "Join"}
           </button>

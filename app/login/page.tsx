@@ -14,27 +14,34 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">LockHub</h1>
-        <p className="text-zinc-500">Lock In. Win Big. Repeat.</p>
-        <form onSubmit={handleSubmit} className="space-y-3">
+    <div className="flex flex-1 items-center justify-center min-h-[calc(100vh-3.5rem)]">
+      <div className="w-full max-w-sm px-6 space-y-8 text-center">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold tracking-tight text-white">LockHub</h1>
+          <p className="text-slate-400">Lock In. Win Big. Repeat.</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3 text-left">
           <input
             type="email"
             required
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-sm outline-none transition-colors focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
           >
             {loading ? "Sending link..." : "Sign in with Email"}
           </button>
         </form>
+
+        <p className="text-xs text-slate-500">
+          We&apos;ll send you a magic link — no password needed.
+        </p>
       </div>
     </div>
   );

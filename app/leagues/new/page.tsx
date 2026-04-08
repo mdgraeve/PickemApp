@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { SPORTS } from "@/lib/sports";
+import { PageLoader } from "@/app/components/skeleton";
 
 export default function NewLeaguePage() {
   const { status } = useSession();
@@ -14,13 +15,7 @@ export default function NewLeaguePage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (status === "loading") {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
-      </div>
-    );
-  }
+  if (status === "loading") return <PageLoader />;
 
   if (status === "unauthenticated") {
     router.push("/login");
@@ -55,13 +50,16 @@ export default function NewLeaguePage() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <div className="w-full max-w-sm space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight">Create a League</h1>
+    <div className="flex flex-1 items-center justify-center py-12">
+      <div className="w-full max-w-md px-6 space-y-8">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight text-white">Create a League</h1>
+          <p className="text-slate-400 text-sm">Set up your pick&apos;em league and invite friends.</p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="name" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-2">
+            <label htmlFor="name" className="block text-sm font-medium text-slate-300">
               League name
             </label>
             <input
@@ -71,12 +69,12 @@ export default function NewLeaguePage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Office Pool 2026"
               required
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
-          <div className="space-y-1">
-            <label htmlFor="sport" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <div className="space-y-2">
+            <label htmlFor="sport" className="block text-sm font-medium text-slate-300">
               Sport
             </label>
             <select
@@ -84,7 +82,7 @@ export default function NewLeaguePage() {
               value={sport}
               onChange={(e) => setSport(e.target.value)}
               required
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
               <option value="" disabled>Select a sport</option>
               {SPORTS.map((s) => (
@@ -94,13 +92,13 @@ export default function NewLeaguePage() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-500">{error}</p>
+            <p className="text-sm text-red-400">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
           >
             {submitting ? "Creating..." : "Create League"}
           </button>

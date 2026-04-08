@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { PageLoader } from "@/app/components/skeleton";
 
 type League = {
   id: string;
@@ -82,7 +83,7 @@ function getWinner(game: Game): string | null {
   if (game.homeScore === null || game.awayScore === null) return null;
   if (game.homeScore > game.awayScore) return game.homeTeam;
   if (game.awayScore > game.homeScore) return game.awayTeam;
-  return null; // tie
+  return null;
 }
 
 export default function LeaguePage() {
@@ -96,12 +97,12 @@ export default function LeaguePage() {
   const [games, setGames] = useState<Game[]>([]);
   const [pastSlates, setPastSlates] = useState<SlateListItem[]>([]);
   const [tiebreakers, setTiebreakers] = useState<TiebreakerQuestion[]>([]);
-  const [tbInputs, setTbInputs] = useState<Record<string, string>>({}); // questionId -> draft value
-  const [tbSubmitting, setTbSubmitting] = useState<string | null>(null); // questionId being saved
+  const [tbInputs, setTbInputs] = useState<Record<string, string>>({});
+  const [tbSubmitting, setTbSubmitting] = useState<string | null>(null);
   const [tbErrors, setTbErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pickSubmitting, setPickSubmitting] = useState<string | null>(null); // gameId being submitted
+  const [pickSubmitting, setPickSubmitting] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -132,7 +133,6 @@ export default function LeaguePage() {
         setGames(gamesData.games);
         setPastSlates((slatesData as SlateListItem[]).filter((s) => s.status === "completed"));
 
-        // Fetch tiebreakers for the active slate if one exists
         if (gamesData.slate) {
           const tbRes = await fetch(
             `/api/leagues/${leagueId}/slates/${gamesData.slate.id}/tiebreakers`,
@@ -140,7 +140,6 @@ export default function LeaguePage() {
           if (tbRes?.ok) {
             const tbData: TiebreakerQuestion[] = await tbRes.json();
             setTiebreakers(tbData);
-            // Pre-fill inputs with any existing responses
             const initial: Record<string, string> = {};
             for (const q of tbData) {
               if (q.myResponse !== null) initial[q.id] = String(q.myResponse);
@@ -212,18 +211,12 @@ export default function LeaguePage() {
     }
   }
 
-  if (status === "loading" || loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
-      </div>
-    );
-  }
+  if (status === "loading" || loading) return <PageLoader />;
 
   if (error) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-red-500">{error}</p>
+        <p className="text-red-400">{error}</p>
       </div>
     );
   }
@@ -231,74 +224,39 @@ export default function LeaguePage() {
   const locked = isPastDeadline(slate?.lockDeadline ?? null);
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 space-y-6">
-      {/* Header */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
-              ← Home
-            </Link>
-            <h1 className="text-2xl font-bold tracking-tight">{league?.name}</h1>
-            {league?.sport && (
-              <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                {league.sport}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Link
-              href={`/leagues/${leagueId}/leaderboard`}
-              className="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-            >
-              Leaderboard
-            </Link>
-            {league?.role === "admin" && (
-              <>
-                <Link
-                  href={`/leagues/${leagueId}/admin`}
-                  className="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                >
-                  Admin
-                </Link>
-                <Link
-                  href={`/leagues/${leagueId}/settings`}
-                  className="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                >
-                  Settings
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
+    <div className="mx-auto max-w-4xl px-4 py-10 space-y-8">
       {/* Active slate */}
       {!slate ? (
-        <div className="rounded-xl border border-zinc-200 px-5 py-8 text-center dark:border-zinc-800">
-          <p className="text-zinc-500">No active slate right now.</p>
-          {league?.role === "admin" && (
-            <Link
-              href={`/leagues/${leagueId}/admin`}
-              className="mt-3 inline-block text-sm text-zinc-700 underline dark:text-zinc-300"
-            >
-              Set up a slate in Admin
-            </Link>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 px-6 py-12 text-center space-y-3">
+          <p className="text-base font-semibold text-white">No active slate right now</p>
+          {league?.role === "admin" ? (
+            <p className="text-sm text-slate-400">
+              Head to the{" "}
+              <Link href={`/leagues/${leagueId}/admin`} className="text-blue-400 hover:text-blue-300 transition">
+                Admin panel
+              </Link>{" "}
+              to create a slate and add games.
+            </p>
+          ) : (
+            <p className="text-sm text-slate-400">Check back soon — games will appear here when the next slate is ready.</p>
           )}
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold">{slate.name}</h2>
+        <div className="space-y-5">
+          {/* Slate header */}
+          <div className="flex items-baseline justify-between gap-4">
+            <h1 className="text-3xl font-bold tracking-tight text-white">{slate.name}</h1>
             {slate.lockDeadline && (
-              <p className={`text-sm ${locked ? "text-red-500" : "text-zinc-500"}`}>
-                {locked ? "Picks locked" : `Lock: ${formatDeadline(slate.lockDeadline)}`}
+              <p className={`text-sm shrink-0 ${locked ? "text-red-400 font-medium" : "text-slate-400"}`}>
+                {locked ? "Picks locked" : `Locks ${formatDeadline(slate.lockDeadline)}`}
               </p>
             )}
           </div>
 
           {games.length === 0 ? (
-            <p className="text-zinc-500">No games in this slate yet.</p>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 px-6 py-10 text-center">
+              <p className="text-slate-400">No games in this slate yet.</p>
+            </div>
           ) : (
             <ul className="space-y-3">
               {games.map((game) => {
@@ -309,12 +267,12 @@ export default function LeaguePage() {
                 return (
                   <li
                     key={game.id}
-                    className="rounded-xl border border-zinc-200 px-5 py-4 space-y-3 dark:border-zinc-800"
+                    className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 space-y-3"
                   >
-                    <div className="flex items-center justify-between text-sm text-zinc-500">
+                    <div className="flex items-center justify-between text-xs text-slate-400">
                       <span>{formatGameTime(game.startTime)}</span>
                       {isCompleted && (
-                        <span className="text-xs font-medium text-zinc-400">Final</span>
+                        <span className="font-medium uppercase tracking-wide">Final</span>
                       )}
                     </div>
 
@@ -327,18 +285,18 @@ export default function LeaguePage() {
                         const isWrong = isCompleted && isPicked && !isWinner;
 
                         let cls =
-                          "flex-1 rounded-lg px-3 py-2 text-sm font-medium text-center transition-colors";
+                          "flex-1 rounded-xl px-3 py-4 text-sm font-semibold text-center transition-colors";
 
                         if (isCorrect) {
-                          cls += " bg-green-100 border border-green-400 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+                          cls += " bg-green-900/40 border border-green-600/60 text-green-300";
                         } else if (isWrong) {
-                          cls += " bg-red-100 border border-red-400 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+                          cls += " bg-red-900/40 border border-red-600/60 text-red-300";
                         } else if (isPicked) {
-                          cls += " bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900";
+                          cls += " bg-blue-600 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-slate-900";
                         } else if (isLoser) {
-                          cls += " border border-zinc-200 text-zinc-400 dark:border-zinc-700";
+                          cls += " border border-slate-800 text-slate-600";
                         } else {
-                          cls += " border border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900";
+                          cls += " border border-slate-700 text-slate-300 hover:border-slate-500 hover:bg-slate-800/60";
                         }
 
                         if (locked || isCompleted || isSubmitting) {
@@ -354,7 +312,7 @@ export default function LeaguePage() {
                           >
                             {team}
                             {isCompleted && game.homeScore !== null && game.awayScore !== null && (
-                              <span className="ml-1 text-xs font-normal">
+                              <span className="ml-1.5 text-xs font-normal opacity-75">
                                 ({team === game.homeTeam ? game.homeScore : game.awayScore})
                               </span>
                             )}
@@ -372,8 +330,8 @@ export default function LeaguePage() {
 
       {/* Tiebreaker questions */}
       {tiebreakers.length > 0 && slate && (
-        <div className="space-y-3">
-          <h2 className="text-base font-semibold text-zinc-700 dark:text-zinc-300">Tie-breaker</h2>
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-white">Tie-breaker</h2>
           <ul className="space-y-3">
             {tiebreakers.map((q) => {
               const isSubmitting = tbSubmitting === q.id;
@@ -384,9 +342,9 @@ export default function LeaguePage() {
               return (
                 <li
                   key={q.id}
-                  className="rounded-xl border border-zinc-200 px-5 py-4 space-y-2 dark:border-zinc-800"
+                  className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 space-y-3"
                 >
-                  <p className="text-sm font-medium">{q.question}</p>
+                  <p className="text-sm font-medium text-white">{q.question}</p>
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
@@ -398,22 +356,22 @@ export default function LeaguePage() {
                       }}
                       disabled={locked || isSubmitting}
                       placeholder="Your answer"
-                      className="w-32 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                      className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                     />
                     <button
                       onClick={() => submitTiebreaker(q.id)}
                       disabled={locked || isSubmitting || !currentVal || !isDirty}
-                      className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-40"
                     >
                       {isSubmitting ? "Saving..." : q.myResponse !== null ? "Update" : "Submit"}
                     </button>
                     {q.myResponse !== null && !isDirty && (
-                      <span className="text-xs text-zinc-400">Saved: {q.myResponse}</span>
+                      <span className="text-xs text-slate-400">Saved: {q.myResponse}</span>
                     )}
                   </div>
-                  {err && <p className="text-xs text-red-500">{err}</p>}
+                  {err && <p className="text-xs text-red-400">{err}</p>}
                   {locked && (
-                    <p className="text-xs text-zinc-400">Responses are locked.</p>
+                    <p className="text-xs text-slate-500">Responses are locked.</p>
                   )}
                 </li>
               );
@@ -424,17 +382,17 @@ export default function LeaguePage() {
 
       {/* Past slates */}
       {pastSlates.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-base font-semibold text-zinc-700 dark:text-zinc-300">Past Slates</h2>
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-white">Past Slates</h2>
           <ul className="space-y-2">
             {pastSlates.map((s) => (
               <li key={s.id}>
                 <Link
                   href={`/leagues/${leagueId}/slates/${s.id}`}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-3 text-sm hover:bg-zinc-50 transition-colors dark:border-zinc-800 dark:hover:bg-zinc-900"
+                  className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm transition hover:border-slate-700 hover:bg-slate-800/60"
                 >
-                  <span className="font-medium">{s.name}</span>
-                  <span className="text-zinc-400">{s.gameCount} game{s.gameCount !== 1 ? "s" : ""} →</span>
+                  <span className="font-medium text-white">{s.name}</span>
+                  <span className="text-slate-400">{s.gameCount} game{s.gameCount !== 1 ? "s" : ""} →</span>
                 </Link>
               </li>
             ))}

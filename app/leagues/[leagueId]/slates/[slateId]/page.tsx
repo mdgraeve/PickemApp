@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import { PageLoader } from "@/app/components/skeleton";
 
 type Slate = {
   id: string;
@@ -57,7 +57,7 @@ function getWinner(game: Game): string | null {
 }
 
 export default function SlateHistoryPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const params = useParams();
   const router = useRouter();
   const leagueId = params.leagueId as string;
@@ -98,56 +98,48 @@ export default function SlateHistoryPage() {
       .finally(() => setLoading(false));
   }, [leagueId, slateId, status, router]);
 
-  if (status === "loading" || loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
-      </div>
-    );
-  }
+  if (status === "loading" || loading) return <PageLoader />;
 
   if (error) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-red-500">{error}</p>
+        <p className="text-red-400">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 space-y-6">
-      <div className="flex items-center gap-4">
-        <Link
-          href={`/leagues/${leagueId}`}
-          className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-        >
-          ← Back
-        </Link>
-        <h1 className="text-2xl font-bold tracking-tight">{slate?.name}</h1>
+    <div className="mx-auto max-w-4xl px-4 py-10 space-y-8">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-white">{slate?.name}</h1>
         {slate?.status && (
-          <span className="text-sm text-zinc-500 capitalize">{slate.status}</span>
+          <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-400 capitalize">
+            {slate.status}
+          </span>
         )}
       </div>
 
+      {/* Tiebreakers */}
       {tiebreakers.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-base font-semibold text-zinc-700 dark:text-zinc-300">Tie-breaker</h2>
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-white">Tie-breaker</h2>
           <ul className="space-y-3">
             {tiebreakers.map((q) => (
               <li
                 key={q.id}
-                className="rounded-xl border border-zinc-200 px-5 py-4 space-y-3 dark:border-zinc-800"
+                className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 space-y-3"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <p className="text-sm font-medium">{q.question}</p>
+                  <p className="text-sm font-medium text-white">{q.question}</p>
                   {q.answer !== null && (
-                    <span className="shrink-0 rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
+                    <span className="shrink-0 rounded-full bg-blue-600 px-2.5 py-0.5 text-xs font-semibold text-white">
                       Answer: {q.answer}
                     </span>
                   )}
                 </div>
                 {q.responses.length > 0 ? (
-                  <ul className="space-y-1">
+                  <ul className="space-y-1.5">
                     {q.responses.map((r) => {
                       const isOver = q.answer !== null && r.response > q.answer;
                       const isExact = q.answer !== null && r.response === q.answer;
@@ -156,10 +148,10 @@ export default function SlateHistoryPage() {
                           key={r.userId}
                           className="flex items-center justify-between text-sm"
                         >
-                          <span className="text-zinc-600 dark:text-zinc-400">{r.name}</span>
-                          <span className={`font-medium ${isExact ? "text-green-600 dark:text-green-400" : isOver ? "text-red-500" : ""}`}>
+                          <span className="text-slate-400">{r.name}</span>
+                          <span className={`font-medium ${isExact ? "text-green-400" : isOver ? "text-red-400" : "text-white"}`}>
                             {r.response}
-                            {isOver && <span className="ml-1 text-xs font-normal text-red-400">(over)</span>}
+                            {isOver && <span className="ml-1 text-xs font-normal text-red-500">(over)</span>}
                             {isExact && <span className="ml-1 text-xs font-normal text-green-500">(exact!)</span>}
                           </span>
                         </li>
@@ -167,7 +159,7 @@ export default function SlateHistoryPage() {
                     })}
                   </ul>
                 ) : (
-                  <p className="text-xs text-zinc-400">No responses submitted.</p>
+                  <p className="text-xs text-slate-500">No responses submitted.</p>
                 )}
               </li>
             ))}
@@ -175,8 +167,11 @@ export default function SlateHistoryPage() {
         </div>
       )}
 
+      {/* Games */}
       {games.length === 0 ? (
-        <p className="text-zinc-500">No games in this slate.</p>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 px-6 py-10 text-center">
+          <p className="text-slate-400">No games in this slate.</p>
+        </div>
       ) : (
         <ul className="space-y-3">
           {games.map((game) => {
@@ -186,12 +181,12 @@ export default function SlateHistoryPage() {
             return (
               <li
                 key={game.id}
-                className="rounded-xl border border-zinc-200 px-5 py-4 space-y-3 dark:border-zinc-800"
+                className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 space-y-3"
               >
-                <div className="flex items-center justify-between text-sm text-zinc-500">
+                <div className="flex items-center justify-between text-xs text-slate-400">
                   <span>{formatGameTime(game.startTime)}</span>
                   {isCompleted && (
-                    <span className="text-xs font-medium text-zinc-400">Final</span>
+                    <span className="font-medium uppercase tracking-wide">Final</span>
                   )}
                 </div>
 
@@ -204,25 +199,25 @@ export default function SlateHistoryPage() {
                     const isWrong = isCompleted && isPicked && !isWinner;
 
                     let cls =
-                      "flex-1 rounded-lg px-3 py-2 text-sm font-medium text-center cursor-default";
+                      "flex-1 rounded-xl px-3 py-3 text-sm font-semibold text-center cursor-default transition-colors";
 
                     if (isCorrect) {
-                      cls += " bg-green-100 border border-green-400 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+                      cls += " bg-green-900/40 border border-green-600/60 text-green-300";
                     } else if (isWrong) {
-                      cls += " bg-red-100 border border-red-400 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+                      cls += " bg-red-900/40 border border-red-600/60 text-red-300";
                     } else if (isPicked) {
-                      cls += " bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900";
+                      cls += " bg-blue-600 text-white";
                     } else if (isLoser) {
-                      cls += " border border-zinc-200 text-zinc-400 dark:border-zinc-700";
+                      cls += " border border-slate-800 text-slate-600";
                     } else {
-                      cls += " border border-zinc-200 text-zinc-500 dark:border-zinc-700";
+                      cls += " border border-slate-700 text-slate-300";
                     }
 
                     return (
                       <div key={team} className={cls}>
                         {team}
                         {isCompleted && game.homeScore !== null && game.awayScore !== null && (
-                          <span className="ml-1 text-xs font-normal">
+                          <span className="ml-1.5 text-xs font-normal opacity-75">
                             ({team === game.homeTeam ? game.homeScore : game.awayScore})
                           </span>
                         )}
@@ -232,7 +227,7 @@ export default function SlateHistoryPage() {
                 </div>
 
                 {game.myPick === null && (
-                  <p className="text-xs text-zinc-400">No pick submitted</p>
+                  <p className="text-xs text-slate-500">No pick submitted</p>
                 )}
               </li>
             );
