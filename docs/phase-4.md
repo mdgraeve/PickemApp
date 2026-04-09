@@ -218,6 +218,8 @@ Tailwind 4 generates utility classes as `var(--color-*)` references, so overridi
 **Schema changes:** None.
 **API changes:** None.
 
+**Post-completion fix:** Each theme block in `globals.css` now also overrides `--background` and `--foreground`. The `body` rule uses `background: var(--background)` directly rather than a Tailwind utility, so without this fix the page background remained `#0f172a` on all themes.
+
 ---
 
 ## What the current codebase supports

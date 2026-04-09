@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-09 (fix: background color now responds to theme changes)
+
+**`app/globals.css`**: Added `--background` and `--foreground` overrides to each `html[data-theme="X"]` block. The `body` rule uses `background: var(--background)` directly (not a Tailwind utility), so overriding only `--color-slate-950` in the theme blocks left the page background stuck at the default `#0f172a` regardless of selected theme. Each theme now also sets `--background` (matching its `slate-950` value) and `--foreground` (matching its text color), so the full page background changes on theme switch.
+
 ## 2026-04-09 (nav: settings gear icon in top-right)
 
 **`app/components/nav.tsx`**: Added a dedicated gear icon button in the top-right of the persistent nav bar that links to `/settings`. Previously the username was a link to settings, but it was not visually distinct from plain text, making the settings page undiscoverable.
