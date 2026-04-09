@@ -28,7 +28,16 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Prevent flash of unstyled content: apply saved theme before first paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('lockhub-theme');var v=['nord','tokyo-night','monokai','simple-dark','simple-light'];if(t&&v.indexOf(t)!==-1)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-slate-950 text-white antialiased">
         <Providers>
           <Nav />

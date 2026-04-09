@@ -8,7 +8,7 @@ Phase 4 makes the app feel production-ready and sport-appropriate. All work is p
 
 ## Visual Direction
 
-- **Theme:** Dark-first (single theme, no light/dark toggle)
+- **Themes:** 6 selectable themes (Slate default, Nord, Tokyo Night, Monokai, Simple Dark, Simple Light); preference stored in `localStorage`
 - **Background:** `slate-950` (#0f172a) for page, `slate-900` for cards
 - **Accent:** `blue-600` / `blue-500` hover for interactive elements (buttons, active tabs, links, focus rings)
 - **Text:** `white` primary, `slate-400` secondary, `slate-500` muted
@@ -71,6 +71,8 @@ Replaced ad-hoc back-link pattern with a sticky top nav rendered in the root lay
 **New file:** `app/components/nav.tsx`
 **Schema changes:** None.
 **API changes:** None.
+
+**Post-completion update:** Added a dedicated gear icon (⚙) link to `/settings` in the top-right of the nav bar (between the username display and Sign out). This replaces the previous pattern of making the username itself a hidden link to settings, which was not discoverable. Mobile dropdown also updated to show a clearly labeled "Settings" link.
 
 ---
 
@@ -186,6 +188,38 @@ https://a.espncdn.com/i/teamlogos/ncaa/500/{id}.png       (college)
 
 ---
 
+### 8. Color Themes
+
+**Status: Complete**
+
+Added 6 selectable color themes via CSS custom property overrides — no component refactoring required.
+
+Tailwind 4 generates utility classes as `var(--color-*)` references, so overriding those CSS variables under `html[data-theme="X"]` re-themes every component automatically.
+
+**Themes:**
+| Key | Name | Character |
+|---|---|---|
+| `slate` (default) | Slate | Dark slate-blue (original design) |
+| `nord` | Nord | Cool arctic blues |
+| `tokyo-night` | Tokyo Night | Deep navy with pink/cyan accents |
+| `monokai` | Monokai | Warm grey with yellow/orange accents |
+| `simple-dark` | Simple Dark | Pure black and gray |
+| `simple-light` | Simple Light | White background with dark text |
+
+**New file:** `lib/theme.tsx` — exports `ThemeProvider`, `useTheme()`, `THEMES`, `THEME_LABELS`, `THEME_SWATCHES`
+
+**Files changed:**
+- `app/globals.css` — 5 `html[data-theme="X"]` CSS variable override blocks appended
+- `app/layout.tsx` — inline FOUC-prevention `<script>` reads `localStorage` and sets `data-theme` before first paint
+- `app/providers.tsx` — `ThemeProvider` wraps `SessionProvider`
+- `app/settings/page.tsx` — new "Appearance" section with 6 swatch picker cards
+
+**Storage:** `localStorage` key `lockhub-theme`. No DB migration required.
+**Schema changes:** None.
+**API changes:** None.
+
+---
+
 ## What the current codebase supports
 
 | Requirement | Supported now? | Notes |
@@ -197,3 +231,4 @@ https://a.espncdn.com/i/teamlogos/ncaa/500/{id}.png       (college)
 | Loading skeletons | Yes | Completed in Task 5 |
 | Actionable empty states | Yes | Completed in Task 6 |
 | Team logos | Yes | Completed in Task 7 |
+| Color themes (6) | Yes | Completed in Task 8 |

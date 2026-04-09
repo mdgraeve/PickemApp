@@ -46,19 +46,25 @@ export default function Nav() {
   const [league, setLeague] = useState<LeagueInfo | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Close menu whenever the route changes — setState in cleanup is lint-safe
   useEffect(() => {
-    setMenuOpen(false);
+    return () => setMenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    if (!leagueId || status !== "authenticated") {
-      setLeague(null);
-      return;
-    }
+    if (!leagueId || status !== "authenticated") return;
+
+    let active = true;
     fetch(`/api/leagues/${leagueId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setLeague(data))
-      .catch(() => setLeague(null));
+      .then((data) => { if (active) setLeague(data); })
+      .catch(() => { if (active) setLeague(null); });
+
+    // Clear league info when leaving a league route or signing out
+    return () => {
+      active = false;
+      setLeague(null);
+    };
   }, [leagueId, status]);
 
   const isActive = (segment: string) => pathname.includes(`/leagues/${leagueId}/${segment}`);
@@ -122,14 +128,25 @@ export default function Nav() {
         )}
 
         {/* Right: user */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {status === "authenticated" && session?.user && (
             <>
+              <span className="hidden sm:block text-sm text-slate-400">
+                {session.user.name ?? session.user.email}
+              </span>
               <Link
                 href="/settings"
-                className="hidden sm:block text-sm text-slate-400 hover:text-white transition-colors"
+                title="Settings"
+                className={`hidden sm:flex items-center justify-center w-8 h-8 rounded-md transition-colors ${
+                  pathname === "/settings"
+                    ? "text-white bg-slate-800"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                }`}
               >
-                {session.user.name ?? session.user.email}
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
               </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
@@ -202,11 +219,14 @@ export default function Nav() {
           )}
           {status === "authenticated" && session?.user && (
             <>
+              <p className="px-3 py-1 text-xs text-slate-500 truncate">
+                {session.user.name ?? session.user.email}
+              </p>
               <Link
                 href="/settings"
-                className="block px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 rounded-md"
+                className={`block px-3 py-2 text-sm rounded-md ${pathname === "/settings" ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-800"}`}
               >
-                {session.user.name ?? session.user.email}
+                Settings
               </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}

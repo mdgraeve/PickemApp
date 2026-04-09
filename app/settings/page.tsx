@@ -5,10 +5,13 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageLoader } from "@/app/components/skeleton";
+import { useTheme, THEMES, THEME_LABELS, THEME_SWATCHES } from "@/lib/theme";
 
 export default function SettingsPage() {
   const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
+
+  const { theme, setTheme } = useTheme();
 
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -88,6 +91,57 @@ export default function SettingsPage() {
         </form>
         {error && <p className="text-sm text-red-400">{error}</p>}
         {success && <p className="text-sm text-green-400">Display name saved.</p>}
+      </section>
+
+      {/* Appearance — theme picker */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-base font-semibold text-white">Appearance</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Choose a color theme. Saved in your browser.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {THEMES.map((t) => {
+            const s = THEME_SWATCHES[t];
+            const active = theme === t;
+            return (
+              <button
+                key={t}
+                onClick={() => setTheme(t)}
+                className={`relative rounded-xl border-2 p-3 text-left transition-all ${
+                  active
+                    ? "border-blue-500 ring-1 ring-blue-500"
+                    : "border-slate-700 hover:border-slate-500"
+                }`}
+                style={{ background: s.bg }}
+              >
+                {/* Mini preview swatch */}
+                <div
+                  className="mb-2 flex items-center gap-1.5 rounded-lg p-2"
+                  style={{ background: s.surface }}
+                >
+                  <div
+                    className="h-3 w-3 rounded-full"
+                    style={{ background: s.accent }}
+                  />
+                  <div
+                    className="h-2 flex-1 rounded-sm opacity-60"
+                    style={{ background: s.text }}
+                  />
+                </div>
+                <p className="text-xs font-semibold" style={{ color: s.text }}>
+                  {THEME_LABELS[t]}
+                </p>
+                {active && (
+                  <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white text-[10px]">
+                    ✓
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {/* Profile link */}

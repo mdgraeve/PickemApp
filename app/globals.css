@@ -17,3 +17,113 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/* ============================================================
+   COLOR THEMES
+   Each block overrides Tailwind's CSS custom properties for
+   the palette tokens used throughout the app. Since Tailwind 4
+   generates utility classes as var(--color-*) references,
+   overriding these variables re-themes every component without
+   touching any JSX.
+   ============================================================ */
+
+/* Nord — cool arctic blues */
+html[data-theme="nord"] {
+  --color-slate-950: #2e3440;
+  --color-slate-900: #3b4252;
+  --color-slate-800: #434c5e;
+  --color-slate-700: #4c566a;
+  --color-slate-600: #4c566a;
+  --color-slate-500: #b0bec5;
+  --color-slate-400: #d8dee9;
+  --color-slate-300: #e5e9f0;
+  --color-white: #eceff4;
+  --color-blue-600: #5e81ac;
+  --color-blue-500: #81a1c1;
+  --color-blue-400: #88c0d0;
+  --color-blue-300: #8fbcbb;
+  --color-blue-950: #2e3a4a;
+  --color-green-400: #a3be8c;
+  --color-red-400: #bf616a;
+}
+
+/* Tokyo Night — deep navy with pink/cyan accents */
+html[data-theme="tokyo-night"] {
+  --color-slate-950: #1a1b2e;
+  --color-slate-900: #16213e;
+  --color-slate-800: #1e3a5f;
+  --color-slate-700: #1e4a6f;
+  --color-slate-600: #2a4a6a;
+  --color-slate-500: #565f89;
+  --color-slate-400: #a9b1d6;
+  --color-slate-300: #cdd6f4;
+  --color-white: #c0caf5;
+  --color-blue-600: #ff007c;
+  --color-blue-500: #ff3399;
+  --color-blue-400: #00d4ff;
+  --color-blue-300: #7dcfff;
+  --color-blue-950: #1a1b3e;
+  --color-green-400: #9ece6a;
+  --color-red-400: #f7768e;
+}
+
+/* Monokai — warm grey with yellow/orange accents */
+html[data-theme="monokai"] {
+  --color-slate-950: #272822;
+  --color-slate-900: #3e3d32;
+  --color-slate-800: #49483e;
+  --color-slate-700: #75715e;
+  --color-slate-600: #5c5a52;
+  --color-slate-500: #75715e;
+  --color-slate-400: #cfcfc2;
+  --color-slate-300: #e8e8e3;
+  --color-white: #f8f8f2;
+  --color-blue-600: #f92672;
+  --color-blue-500: #fd5c8b;
+  --color-blue-400: #e6db74;
+  --color-blue-300: #a6e22e;
+  --color-blue-950: #312e23;
+  --color-green-400: #a6e22e;
+  --color-red-400: #f92672;
+}
+
+/* Simple Dark — pure black and gray */
+html[data-theme="simple-dark"] {
+  --color-slate-950: #000000;
+  --color-slate-900: #111111;
+  --color-slate-800: #333333;
+  --color-slate-700: #444444;
+  --color-slate-600: #555555;
+  --color-slate-500: #777777;
+  --color-slate-400: #aaaaaa;
+  --color-slate-300: #cccccc;
+  --color-white: #ffffff;
+  --color-blue-600: #555555;
+  --color-blue-500: #666666;
+  --color-blue-400: #888888;
+  --color-blue-300: #999999;
+  --color-blue-950: #1a1a1a;
+  --color-green-400: #4caf50;
+  --color-red-400: #f44336;
+}
+
+/* Simple Light — white background with dark text */
+html[data-theme="simple-light"] {
+  --color-slate-950: #ffffff;
+  --color-slate-900: #f4f4f5;
+  --color-slate-800: #e4e4e7;
+  --color-slate-700: #d4d4d8;
+  --color-slate-600: #a1a1aa;
+  --color-slate-500: #71717a;
+  --color-slate-400: #52525b;
+  --color-slate-300: #3f3f46;
+  /* text-white flips to dark — used exclusively for body text in this app */
+  --color-white: #0f172a;
+  --color-blue-600: #3b82f6;
+  --color-blue-500: #60a5fa;
+  --color-blue-400: #93c5fd;
+  --color-blue-300: #bfdbfe;
+  --color-blue-950: #dbeafe;
+  --color-green-400: #16a34a;
+  --color-red-400: #dc2626;
+}

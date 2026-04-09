@@ -304,7 +304,6 @@ const NCAAB: Record<string, string> = {
   "Miami (FL)": "2390",
   Pittsburgh: "221",
   "Notre Dame": "87",
-  Gonzaga: "2250",
 };
 
 // ---------------------------------------------------------------------------

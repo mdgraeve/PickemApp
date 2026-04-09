@@ -1,5 +1,61 @@
 # Changelog
 
+## 2026-04-09 (nav: settings gear icon in top-right)
+
+**`app/components/nav.tsx`**: Added a dedicated gear icon button in the top-right of the persistent nav bar that links to `/settings`. Previously the username was a link to settings, but it was not visually distinct from plain text, making the settings page undiscoverable.
+
+- Desktop: gear icon (⚙) appears between the username display and the Sign out button; highlights with `bg-slate-800` when on `/settings`
+- Mobile: hamburger dropdown now shows a labeled "Settings" link below the username (which is now plain text, no longer a hidden link)
+
+## 2026-04-09 (fix theme hydration mismatch — suppressHydrationWarning)
+
+**`app/layout.tsx`**: Added `suppressHydrationWarning` to the `<html>` element. The FOUC-prevention script runs synchronously before React hydrates and sets `data-theme` on `document.documentElement`. React then sees a mismatch between its server-rendered `<html>` (no `data-theme`) and the live DOM (`data-theme="simple-dark"`), triggering a hydration error. `suppressHydrationWarning` tells React the attribute difference on this element is intentional.
+
+## 2026-04-09 (fix FOUC script placement — hydration errors)
+
+**`app/layout.tsx`**: Wrapped the FOUC-prevention `<script>` in an explicit `<head>` tag. Previously the script was a direct child of `<html>` (between `<html>` and `<body>`), which is invalid HTML. This caused three console errors:
+1. *"Cannot render a sync or defer `<script>` outside the main document without knowing its order"* — React couldn't determine where in the document to place an unordered inline script.
+2. *"In HTML, `<script>` cannot be a child of `<html>`"* — the browser auto-corrected by moving the script into `<head>`, but that differed from React's server render.
+3. *Hydration attribute mismatch* — the DOM correction made the client tree diverge from the SSR output, breaking hydration.
+
+Moving the script inside `<head>` makes the server HTML valid, the browser leaves it in place, and the client hydration matches.
+
+## 2026-04-09 (lint fixes — react-hooks/set-state-in-effect)
+
+**No functional changes — lint errors only:**
+
+- **`app/components/nav.tsx`**: Refactored two `useEffect` hooks to avoid synchronous `setState` calls in the effect body (flagged by `react-hooks/set-state-in-effect`):
+  - Menu-close effect now puts `setMenuOpen(false)` in the cleanup return, so it fires on route change without being in the effect body.
+  - League-fetch effect removes the early-return `setLeague(null)` from the body; instead, the cleanup function sets `setLeague(null)` and sets an `active` flag to cancel stale fetch callbacks.
+- **`app/leagues/[leagueId]/leaderboard/page.tsx`**: Added `// eslint-disable-next-line react-hooks/set-state-in-effect` above `setLoading(true)` — this is an idiomatic loading-state reset before a fetch and cannot be cleanly eliminated without a larger refactor.
+- `npm run lint` now exits 0 (no errors; 2 pre-existing unused-variable warnings remain).
+
+## 2026-04-08 (phase 4 task 8 — color themes)
+
+**Visual changes (no schema or API changes):**
+
+- **New file** `lib/theme.tsx`:
+  - Exports `ThemeProvider`, `useTheme()`, `THEMES`, `THEME_LABELS`, `THEME_SWATCHES`
+  - Stores theme preference in `localStorage` under key `lockhub-theme`
+  - Applies theme by setting/removing `data-theme` attribute on `document.documentElement`
+  - 6 themes: Slate (default), Nord, Tokyo Night, Monokai, Simple Dark, Simple Light
+
+- **`app/globals.css`**:
+  - Added 5 `html[data-theme="X"]` CSS variable override blocks
+  - Remaps `--color-slate-*`, `--color-white`, `--color-blue-*`, `--color-green-400`, `--color-red-400` per theme
+  - Tailwind 4's utility classes reference these variables at runtime — zero component changes required
+
+- **`app/layout.tsx`**:
+  - Added inline FOUC-prevention `<script>` that synchronously reads `localStorage` and sets `data-theme` before first paint
+
+- **`app/providers.tsx`**:
+  - `ThemeProvider` wraps `SessionProvider` so all client components can call `useTheme()`
+
+- **`app/settings/page.tsx`**:
+  - New "Appearance" section between Display Name and Your Profile
+  - 6 swatch cards with mini color preview, theme name, and active checkmark
+  - Clicking a swatch instantly re-themes the entire app
+
 ## 2026-04-08 (phase 4 task 7 — team logos)
 
 **Visual changes (no schema or API changes):**
