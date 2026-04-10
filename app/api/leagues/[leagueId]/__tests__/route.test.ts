@@ -5,18 +5,19 @@ vi.mock("@/lib/session", () => ({ getSession: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     leagueMember: { findUnique: vi.fn() },
-    league: { update: vi.fn() },
+    league: { update: vi.fn(), delete: vi.fn() },
     slate: { count: vi.fn() },
   },
 }));
 
-import { GET, PATCH } from "../route";
+import { GET, PATCH, DELETE } from "../route";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 
 const mockGetSession = getSession as ReturnType<typeof vi.fn>;
 const mockMemberFindUnique = prisma.leagueMember.findUnique as ReturnType<typeof vi.fn>;
 const mockLeagueUpdate = prisma.league.update as ReturnType<typeof vi.fn>;
+const mockLeagueDelete = prisma.league.delete as ReturnType<typeof vi.fn>;
 const mockSlateCount = prisma.slate.count as ReturnType<typeof vi.fn>;
 
 const leagueId = "league-1";
@@ -218,5 +219,52 @@ describe("PATCH /api/leagues/[leagueId]", () => {
       where: { id: leagueId },
       data: { name: "New Name", sport: "NBA" },
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /api/leagues/[leagueId]
+// ---------------------------------------------------------------------------
+
+const fakeDeleteRequest = new Request(`http://localhost/api/leagues/${leagueId}`, {
+  method: "DELETE",
+});
+
+describe("DELETE /api/leagues/[leagueId]", () => {
+  it("returns 401 when not authenticated", async () => {
+    mockGetSession.mockResolvedValue(null);
+    const response = await DELETE(fakeDeleteRequest, fakeContext);
+    const body = await response.json();
+    expect(response.status).toBe(401);
+    expect(body.error).toBe("Unauthorized");
+  });
+
+  it("returns 403 when user is not a league member", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(null);
+    const response = await DELETE(fakeDeleteRequest, fakeContext);
+    const body = await response.json();
+    expect(response.status).toBe(403);
+    expect(body.error).toBe("Forbidden");
+  });
+
+  it("returns 403 when user is a member but not admin", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue({ ...memberMembership, league: undefined });
+    const response = await DELETE(fakeDeleteRequest, fakeContext);
+    const body = await response.json();
+    expect(response.status).toBe(403);
+    expect(body.error).toBe("Only league admins can delete a league");
+  });
+
+  it("deletes the league and returns success for admin", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue({ ...adminMembership, league: undefined });
+    mockLeagueDelete.mockResolvedValue(fakeLeague);
+    const response = await DELETE(fakeDeleteRequest, fakeContext);
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(mockLeagueDelete).toHaveBeenCalledWith({ where: { id: leagueId } });
   });
 });

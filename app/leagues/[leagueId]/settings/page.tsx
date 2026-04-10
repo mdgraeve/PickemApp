@@ -52,6 +52,10 @@ export default function LeagueSettingsPage() {
   const [memberActionError, setMemberActionError] = useState<string | null>(null);
   const [memberActionPending, setMemberActionPending] = useState<string | null>(null);
 
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
@@ -195,6 +199,26 @@ export default function LeagueSettingsPage() {
     }
   }
 
+  async function handleDeleteLeague(e: React.FormEvent) {
+    e.preventDefault();
+    if (!league || deleteConfirm !== league.name) return;
+    setDeleteSubmitting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        setDeleteError(data.error ?? "Failed to delete league");
+        return;
+      }
+      router.push("/");
+    } catch {
+      setDeleteError("Failed to delete league");
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }
+
   if (status === "loading" || loading) return <PageLoader />;
 
   if (error) {
@@ -284,6 +308,41 @@ export default function LeagueSettingsPage() {
           </button>
         </div>
         <p className="text-xs text-slate-500">Share this code with people you want to invite to the league.</p>
+      </section>
+
+      {/* Danger Zone */}
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold text-red-400">Danger Zone</h2>
+        <div className="rounded-2xl border border-red-900/50 bg-red-950/20 p-5 space-y-4">
+          <div>
+            <p className="text-sm font-medium text-white">Delete this league</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Permanently deletes the league, all slates, games, and picks. This cannot be undone.
+            </p>
+          </div>
+          <form onSubmit={handleDeleteLeague} className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">
+                Type <span className="font-mono text-white">{league?.name}</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => { setDeleteConfirm(e.target.value); setDeleteError(null); }}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                placeholder="League name"
+              />
+            </div>
+            {deleteError && <p className="text-sm text-red-400">{deleteError}</p>}
+            <button
+              type="submit"
+              disabled={deleteSubmitting || deleteConfirm !== league?.name}
+              className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-600 disabled:opacity-40"
+            >
+              {deleteSubmitting ? "Deleting..." : "Delete League"}
+            </button>
+          </form>
+        </div>
       </section>
 
       {/* Members */}

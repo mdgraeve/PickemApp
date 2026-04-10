@@ -118,3 +118,35 @@ export async function PATCH(
 
   return NextResponse.json(league);
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ leagueId: string }> },
+) {
+  const session = await getSession();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { leagueId } = await params;
+  const userId = session.user.id;
+
+  const membership = await prisma.leagueMember.findUnique({
+    where: { userId_leagueId: { userId, leagueId } },
+  });
+
+  if (!membership) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (membership.role !== "admin") {
+    return NextResponse.json(
+      { error: "Only league admins can delete a league" },
+      { status: 403 },
+    );
+  }
+
+  await prisma.league.delete({ where: { id: leagueId } });
+
+  return NextResponse.json({ success: true });
+}
