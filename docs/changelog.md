@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-04-10 (Phase 4: slate navigation on picks tab)
+
+**Why:** Users in leagues with multiple slates (e.g. one per day) could only see the active slate. Completed slates were buried in a separate "Past Slates" section and upcoming slates were invisible entirely, which made the question "when do I see the next slate?" unanswerable from the UI.
+
+**`app/api/leagues/[leagueId]/slates/[slateId]/games/route.ts`**: Added `lockDeadline` to the GET response slate object. Computed the same way as the active-games endpoint: 30 minutes before the earliest game `startTime` in the slate, or `null` if no games exist. This enables correct pick-locking display for non-active (upcoming) slates.
+
+**`app/leagues/[leagueId]/page.tsx`**: Complete rework of the picks page data flow and navigation.
+- Initial load now fetches league + all slates + leaderboard in parallel (removed the separate active-games fetch).
+- A second `useEffect` on `viewIndex` fetches games and tiebreakers for the currently viewed slate via `GET /api/leagues/[leagueId]/slates/[slateId]/games` and resets state on navigation.
+- Defaults to the active slate; falls back to the first slate if no active one exists.
+- Navigation header: `‹` / `›` arrow buttons with the slate name and status label (`Active` / `Final` / `Upcoming`) between them. Arrows are disabled at the boundaries.
+- Going right from the last slate (or when no slates exist past the active one) shows a "No Upcoming Slate — Check back later" empty state.
+- A subtle loading skeleton (pulse animation) is shown while a new slate's data loads.
+- "Past Slates" section removed — all slate navigation is now through the arrow UI.
+- Live score polling restricted to the active slate.
+
+**`app/api/leagues/[leagueId]/slates/[slateId]/games/__tests__/route.test.ts`**: Added 2 new tests for `lockDeadline` — one asserting it is 30 minutes before the earliest game, one asserting it is `null` when the slate has no games.
+
+Test count: 253 → 255 (all passing).
+
+---
+
 ## 2026-04-10 (Phase 5: live score badges)
 
 **Why:** Users watching games in real time had no indication of the current score or game state while the picks page was open. This adds a live badge with a pulsing dot, sport-specific state string (e.g. "Bot 7th", "2nd - 14:32"), and running score to each in-progress game card.

@@ -61,7 +61,7 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 | `PATCH /api/leagues/[leagueId]/games/[gameId]` | admin | Record game result (`homeScore`, `awayScore`); triggers slate promotion if all slate games complete |
 | `POST /api/leagues/[leagueId]/games/[gameId]/picks` | member | Upsert pick; blocked 30 min before earliest game startTime in the slate (falls back to `game.startTime` for games with no slate) |
 | `GET /api/leagues/[leagueId]/slates` | member | List slates ordered by position with game count |
-| `GET /api/leagues/[leagueId]/slates/[slateId]/games` | member | Games for a specific slate with slate metadata; each game includes `myPick`; for historical view |
+| `GET /api/leagues/[leagueId]/slates/[slateId]/games` | member | Games for a specific slate with slate metadata; each game includes `myPick`; slate object includes `lockDeadline` (30 min before earliest game, or null); works for all slate statuses |
 | `POST /api/leagues/[leagueId]/slates` | admin | Create a slate (`name`, `position`) |
 | `POST /api/leagues/[leagueId]/slates/[slateId]/games` | admin | Populate slate with games from SportGame schedule (`sportGameIds[]`); enforces sport match |
 | `GET /api/leagues/[leagueId]/leaderboard` | member | Ranked members by correct picks; optional `?slateId=` to scope to a single slate |

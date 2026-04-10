@@ -160,6 +160,33 @@ describe("GET /api/leagues/[leagueId]/slates/[slateId]/games", () => {
     expect(body.slate).toMatchObject({ id: slateId });
     expect(body.games).toEqual([]);
   });
+
+  it("includes lockDeadline 30 minutes before earliest game startTime", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(memberMembership);
+    mockSlateFindUnique.mockResolvedValue(fakeSlate);
+    mockGameFindMany.mockResolvedValue(fakeCreatedGames);
+
+    const response = await GET(fakeGetRequest, fakeContext);
+    const body = await response.json();
+
+    const expectedDeadline = new Date(
+      new Date("2026-09-06T20:20:00Z").getTime() - 30 * 60 * 1000,
+    ).toISOString();
+    expect(body.slate.lockDeadline).toBe(expectedDeadline);
+  });
+
+  it("returns lockDeadline null when slate has no games", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(memberMembership);
+    mockSlateFindUnique.mockResolvedValue(fakeSlate);
+    mockGameFindMany.mockResolvedValue([]);
+
+    const response = await GET(fakeGetRequest, fakeContext);
+    const body = await response.json();
+
+    expect(body.slate.lockDeadline).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

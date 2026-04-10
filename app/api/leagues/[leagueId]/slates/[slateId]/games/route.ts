@@ -39,12 +39,22 @@ export async function GET(
   });
   const pickMap = new Map(picks.map((p) => [p.gameId, p.pickedTeam]));
 
+  // Lock deadline: 30 minutes before the earliest game in the slate.
+  const firstStart =
+    games.length > 0
+      ? new Date(Math.min(...games.map((g) => new Date(g.startTime).getTime())))
+      : null;
+  const lockDeadline = firstStart
+    ? new Date(firstStart.getTime() - 30 * 60 * 1000)
+    : null;
+
   return NextResponse.json({
     slate: {
       id: slate.id,
       name: slate.name,
       position: slate.position,
       status: slate.status,
+      lockDeadline,
     },
     games: games.map((g) => ({
       ...g,
