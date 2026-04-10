@@ -52,10 +52,12 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 | `POST /api/leagues/join` | required | Join via invite code |
 | `GET /api/leagues/[leagueId]` | member | League details (`id`, `name`, `sport`, `inviteCode`, `memberCount`, `role`) |
 | `PATCH /api/leagues/[leagueId]` | admin | Update `name` and/or `sport`; sport change blocked once any slates exist |
+| `DELETE /api/leagues/[leagueId]` | admin | Permanently delete the league and all related data (slates, games, picks, tiebreakers) via cascade |
 | `GET /api/leagues/[leagueId]/members` | admin | List all members with user details (name, email) ordered by joinedAt |
 | `PATCH /api/leagues/[leagueId]/members/[userId]` | admin | Change member role (admin ↔ member); 400 if demoting sole admin |
 | `DELETE /api/leagues/[leagueId]/members/[userId]` | admin | Remove member; 400 if removing sole admin |
 | `GET /api/leagues/[leagueId]/games` | member | Active slate games; returns `{ slate, games }` — slate includes `lockDeadline`; each game includes `myPick`; `slate` is null if no active slate |
+| `GET /api/leagues/[leagueId]/games/live` | member | Live score overlay for in-progress games; returns `{ [gameId]: { homeScore, awayScore, clock, period, shortDetail, status } }` keyed by internal game ID; `{}` when no active slate, no espnGameIds, or ESPN unreachable |
 | `PATCH /api/leagues/[leagueId]/games/[gameId]` | admin | Record game result (`homeScore`, `awayScore`); triggers slate promotion if all slate games complete |
 | `POST /api/leagues/[leagueId]/games/[gameId]/picks` | member | Upsert pick; blocked 30 min before earliest game startTime in the slate (falls back to `game.startTime` for games with no slate) |
 | `GET /api/leagues/[leagueId]/slates` | member | List slates ordered by position with game count |

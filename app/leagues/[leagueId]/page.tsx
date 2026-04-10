@@ -42,7 +42,17 @@ type Game = {
   status: string;
   homeScore: number | null;
   awayScore: number | null;
+  espnGameId: string | null;
   myPick: string | null;
+};
+
+type LiveScore = {
+  homeScore: number | null;
+  awayScore: number | null;
+  clock: string | null;
+  period: number | null;
+  shortDetail: string | null;
+  status: string;
 };
 
 type TiebreakerQuestion = {
@@ -104,6 +114,7 @@ export default function LeaguePage() {
   const [tbSubmitting, setTbSubmitting] = useState<string | null>(null);
   const [tbErrors, setTbErrors] = useState<Record<string, string>>({});
   const [leaderboard, setLeaderboard] = useState<PodiumEntry[]>([]);
+  const [liveScores, setLiveScores] = useState<Record<string, LiveScore>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pickSubmitting, setPickSubmitting] = useState<string | null>(null);
@@ -162,6 +173,24 @@ export default function LeaguePage() {
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, [leagueId, status, router]);
+
+  useEffect(() => {
+    const hasLiveGames = games.some((g) => g.espnGameId && g.status !== "completed");
+    if (!hasLiveGames) return;
+
+    async function fetchLiveScores() {
+      try {
+        const res = await fetch(`/api/leagues/${leagueId}/games/live`);
+        if (res.ok) setLiveScores(await res.json());
+      } catch {
+        // Silent fail — retain last known state
+      }
+    }
+
+    void fetchLiveScores();
+    const id = setInterval(fetchLiveScores, 45_000);
+    return () => clearInterval(id);
+  }, [games, leagueId]);
 
   async function submitPick(gameId: string, pickedTeam: string) {
     setPickSubmitting(gameId);
@@ -279,6 +308,8 @@ export default function LeaguePage() {
                 const winner = getWinner(game);
                 const isCompleted = game.status === "completed";
                 const isSubmitting = pickSubmitting === game.id;
+                const liveScore = liveScores[game.id];
+                const isLive = liveScore?.status === "in_progress";
 
                 return (
                   <li
@@ -289,6 +320,23 @@ export default function LeaguePage() {
                       <span>{formatGameTime(game.startTime)}</span>
                       {isCompleted && (
                         <span className="font-medium uppercase tracking-wide">Final</span>
+                      )}
+                      {isLive && (
+                        <span className="flex items-center gap-1.5 font-medium text-red-400">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                          </span>
+                          LIVE
+                          {liveScore.shortDetail && (
+                            <span className="font-normal text-slate-300">{liveScore.shortDetail}</span>
+                          )}
+                          {liveScore.homeScore !== null && liveScore.awayScore !== null && (
+                            <span className="font-semibold text-white">
+                              {liveScore.awayScore}–{liveScore.homeScore}
+                            </span>
+                          )}
+                        </span>
                       )}
                     </div>
 

@@ -23,10 +23,16 @@ export type ESPNGame = {
   awayTeam: string;
   scheduledAt: Date;
   status: ESPNGameStatus;
-  /** Null unless status is "completed". */
+  /** Null unless status is "completed" or "in_progress". */
   homeScore: number | null;
-  /** Null unless status is "completed". */
+  /** Null unless status is "completed" or "in_progress". */
   awayScore: number | null;
+  /** Time remaining in current period. Null unless status is "in_progress". */
+  clock: string | null;
+  /** Current period or inning number. Null unless status is "in_progress". */
+  period: number | null;
+  /** Human-readable game state, e.g. "Bot 7th" or "2nd - 14:32". Null unless status is "in_progress". */
+  shortDetail: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -57,12 +63,17 @@ type RawCompetitor = {
 type RawStatusType = {
   name: string;
   completed: boolean;
+  shortDetail?: string;
 };
 
 type RawEvent = {
   id: string;
   date: string;
-  status: { type: RawStatusType };
+  status: {
+    displayClock?: string;
+    period?: number;
+    type: RawStatusType;
+  };
   competitions: Array<{ competitors: RawCompetitor[] }>;
 };
 
@@ -108,15 +119,19 @@ export function parseESPNEvents(raw: RawScoreboardResponse): ESPNGame[] {
       event.status.type.completed,
     );
 
-    // Only extract scores for completed games; treat parse failures as null.
+    // Extract scores for completed and in-progress games; treat parse failures as null.
     let homeScore: number | null = null;
     let awayScore: number | null = null;
-    if (status === "completed") {
+    if (status === "completed" || status === "in_progress") {
       const h = parseInt(home.score ?? "", 10);
       const a = parseInt(away.score ?? "", 10);
       homeScore = Number.isNaN(h) ? null : h;
       awayScore = Number.isNaN(a) ? null : a;
     }
+
+    const clock = status === "in_progress" ? (event.status.displayClock ?? null) : null;
+    const period = status === "in_progress" ? (event.status.period ?? null) : null;
+    const shortDetail = status === "in_progress" ? (event.status.type.shortDetail ?? null) : null;
 
     games.push({
       id: event.id,
@@ -126,6 +141,9 @@ export function parseESPNEvents(raw: RawScoreboardResponse): ESPNGame[] {
       status,
       homeScore,
       awayScore,
+      clock,
+      period,
+      shortDetail,
     });
   }
 

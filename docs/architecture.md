@@ -54,7 +54,7 @@ NextAuth v4 with the Prisma adapter. Sessions are stored in the database via the
 
 - **User** -- authenticated user; has accounts, sessions, league memberships, and picks
 - **Account / Session / VerificationToken** -- NextAuth adapter models for auth state
-- **League** -- a pick'em competition group; tied to a single sport
+- **League** -- a pick'em competition group; tied to a single sport; can be permanently deleted by an admin (cascades to all child records)
 - **LeagueMember** -- join table linking users to leagues with a role (admin/member)
 - **SportGame** -- app-managed canonical schedule per sport; seeded via `prisma/seed.ts`
 - **Slate** -- named round within a league (position, status: upcoming/active/completed); one active at a time

@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-04-10 (Phase 5: live score badges)
+
+**Why:** Users watching games in real time had no indication of the current score or game state while the picks page was open. This adds a live badge with a pulsing dot, sport-specific state string (e.g. "Bot 7th", "2nd - 14:32"), and running score to each in-progress game card.
+
+**`lib/espn.ts`**: Extended `ESPNGame` type with `clock: string | null`, `period: number | null`, `shortDetail: string | null`. Extended `RawEvent` internal type to expose `status.displayClock`, `status.period`, `status.type.shortDetail` from ESPN's raw payload. Updated `parseESPNEvents` to extract scores for both `completed` and `in_progress` games (previously only `completed`). Live state fields populated for `in_progress` games; `null` for all other statuses.
+
+**`app/api/leagues/[leagueId]/games/live/route.ts`** *(new)*: `GET` handler, auth + member guard. Fetches active slate's games with `espnGameId` that aren't yet completed, calls `fetchESPNScoreboard`, returns `{ [gameId]: LiveScoreEntry }` for in-progress matches only. Returns `{}` gracefully on no sport, no active slate, no eligible games, or ESPN error (silent-fail pattern for polling).
+
+**`app/leagues/[leagueId]/page.tsx`**: Added `LiveScore` type and `liveScores: Record<string, LiveScore>` state. Second `useEffect` polls `/api/leagues/${leagueId}/games/live` every 45 s, starting only when a slate game has an `espnGameId` and isn't completed; clears on unmount. Game card header now shows a pulsing `LIVE` badge + `shortDetail` + score (`away–home`) when a live score entry exists. Completed `FINAL` badge and in-button score display unchanged. Added `espnGameId: string | null` to the `Game` type.
+
+**`__tests__/fixtures/espn-mlb-scoreboard.json`** *(new)*: MLB fixture with one in-progress game (`displayClock`, `period: 7`, `shortDetail: "Bot 7th"`), one completed, one scheduled.
+
+**`lib/__tests__/espn.test.ts`**: Updated `"returns null scores for in-progress games"` → `"extracts live scores for in-progress games"` (Cowboys 14, Giants 7 now populated). Added 6 new tests: null clock/period/shortDetail when fields absent; null for completed/scheduled; MLB fixture describe block (4 tests).
+
+**`app/api/leagues/[leagueId]/games/live/__tests__/route.test.ts`** *(new)*: 10 tests — 401, 403, no sport, no active slate, no espnGameIds (ESPN not called), ESPN throws (silent `{}`), correct LiveScoreEntry mapping, game absent from ESPN response, extra ESPN games ignored, ESPN-completed game omitted.
+
+Test count: 237 → 253 (all passing).
+
+---
+
+## 2026-04-10 (Phase 4: delete league)
+
+**Why:** League admins needed a way to permanently remove a league they no longer want. Previously there was no delete path — leagues could only be renamed or settings changed.
+
+**`app/api/leagues/[leagueId]/route.ts`**: Added `DELETE` handler. Requires an authenticated session and that the caller is a league `admin` (403 otherwise). Calls `prisma.league.delete()`, which cascades to all related records (LeagueMember, Slate, Game, Pick, TiebreakerQuestion, TiebreakerResponse) via existing `onDelete: Cascade` schema rules. Returns `{ success: true }` on completion.
+
+**`app/leagues/[leagueId]/settings/page.tsx`**: Added a "Danger Zone" section at the top of the settings page. Contains a confirmation text input — the admin must type the exact league name before the "Delete League" button becomes enabled. On success, the user is redirected to `/` (home).
+
+**`app/api/leagues/[leagueId]/__tests__/route.test.ts`**: Added 4 tests for the DELETE handler: 401 unauthenticated, 403 non-member, 403 non-admin member, 200 admin success (asserts `prisma.league.delete` called with correct `where`). Updated the `prisma` mock to include `league.delete`.
+
+Test count: 233 → 237 (all passing).
+
+---
+
 ## 2026-04-09 (Phase 5: date-based ESPN sync + league-context sync-espn endpoint)
 
 **Why:** ESPN's scoreboard endpoint does not reliably support a bare `season` year parameter — passing `?season=2026` returned 500 errors. Switched to `?dates=YYYYMMDD`, which is a known working parameter. At the same time, moved the primary sync UX from the app-level `/admin` page into the league admin panel so league admins can populate slates directly without needing app-level credentials.

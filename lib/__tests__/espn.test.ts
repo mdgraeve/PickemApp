@@ -3,6 +3,7 @@ import { parseESPNEvents, fetchESPNSchedule, fetchESPNScoreboard } from "@/lib/e
 
 import scheduleFixture from "@/__tests__/fixtures/espn-nfl-schedule.json";
 import scoreboardFixture from "@/__tests__/fixtures/espn-nfl-scoreboard.json";
+import mlbScoreboardFixture from "@/__tests__/fixtures/espn-mlb-scoreboard.json";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -84,16 +85,34 @@ describe("parseESPNEvents — scoreboard fixture", () => {
     expect(games[0].awayScore).toBe(20);
   });
 
-  it("returns null scores for in-progress games", () => {
+  it("extracts live scores for in-progress games", () => {
     const games = parseESPNEvents(scoreboardFixture);
-    expect(games[1].homeScore).toBeNull();
-    expect(games[1].awayScore).toBeNull();
+    expect(games[1].homeScore).toBe(14);
+    expect(games[1].awayScore).toBe(7);
   });
 
   it("returns null scores for scheduled games", () => {
     const games = parseESPNEvents(scoreboardFixture);
     expect(games[2].homeScore).toBeNull();
     expect(games[2].awayScore).toBeNull();
+  });
+
+  it("returns null clock/period/shortDetail when fields are absent from ESPN response", () => {
+    const games = parseESPNEvents(scoreboardFixture);
+    // NFL fixture in-progress event has no displayClock, period, or shortDetail fields
+    expect(games[1].clock).toBeNull();
+    expect(games[1].period).toBeNull();
+    expect(games[1].shortDetail).toBeNull();
+  });
+
+  it("returns null clock/period/shortDetail for completed and scheduled games", () => {
+    const games = parseESPNEvents(scoreboardFixture);
+    expect(games[0].clock).toBeNull();
+    expect(games[0].period).toBeNull();
+    expect(games[0].shortDetail).toBeNull();
+    expect(games[2].clock).toBeNull();
+    expect(games[2].period).toBeNull();
+    expect(games[2].shortDetail).toBeNull();
   });
 });
 
@@ -168,6 +187,45 @@ describe("parseESPNEvents — live status variants", () => {
     expect(games[0].status).toBe("completed");
     expect(games[0].homeScore).toBe(31);
     expect(games[0].awayScore).toBe(28);
+    expect(games[0].clock).toBeNull();
+    expect(games[0].period).toBeNull();
+    expect(games[0].shortDetail).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseESPNEvents — MLB scoreboard fixture (live fields: clock, period, shortDetail)
+// ---------------------------------------------------------------------------
+
+describe("parseESPNEvents — MLB scoreboard fixture", () => {
+  it("populates clock, period, shortDetail for in_progress games", () => {
+    const games = parseESPNEvents(mlbScoreboardFixture);
+    expect(games[0].status).toBe("in_progress");
+    expect(games[0].clock).toBe("0:00");
+    expect(games[0].period).toBe(7);
+    expect(games[0].shortDetail).toBe("Bot 7th");
+  });
+
+  it("extracts scores for in_progress games", () => {
+    const games = parseESPNEvents(mlbScoreboardFixture);
+    expect(games[0].homeScore).toBe(3);
+    expect(games[0].awayScore).toBe(1);
+  });
+
+  it("sets clock/period/shortDetail to null for completed games", () => {
+    const games = parseESPNEvents(mlbScoreboardFixture);
+    expect(games[1].status).toBe("completed");
+    expect(games[1].clock).toBeNull();
+    expect(games[1].period).toBeNull();
+    expect(games[1].shortDetail).toBeNull();
+  });
+
+  it("sets clock/period/shortDetail to null for scheduled games", () => {
+    const games = parseESPNEvents(mlbScoreboardFixture);
+    expect(games[2].status).toBe("scheduled");
+    expect(games[2].clock).toBeNull();
+    expect(games[2].period).toBeNull();
+    expect(games[2].shortDetail).toBeNull();
   });
 });
 
