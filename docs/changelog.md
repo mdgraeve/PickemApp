@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-04-09 (UI: homepage hero + league page podium leaderboard)
+
+**`app/page.tsx`**: Redesigned both authenticated and unauthenticated states.
+- Unauthenticated: Full-screen hero with a decorative background emoji grid, gradient "LockHub" wordmark, feature highlight trio, and a shadow-accented CTA button. Replaces the previous minimal centered text.
+- Authenticated: Added a welcome banner card (gradient from slate to blue-950, trophy decoration, personalized greeting with first name, league count blurb). League cards now have a sport emoji icon badge and a hover arrow indicator. Create/Join buttons moved to the section header for better scannability. Empty state includes a trophy emoji.
+
+**`app/components/podium.tsx`** *(new)*: `PodiumDisplay` component — SVG-based pixel art Olympic podium showing top 3 league members. Figures are 12×14 viewBox pixel art (arms raised in victory pose) rendered at 5× scale with `shapeRendering="crispEdges"`. Arrangement follows the Olympic convention: 2nd left, 1st center (tallest block), 3rd right. Colors: gold (#f59e0b) for 1st, silver-slate (#94a3b8) for 2nd, bronze (#b45309) for 3rd. Score (correct/total) shown above each figure; name truncated below; podium block height reflects place. Links to the full leaderboard page.
+
+**`app/leagues/[leagueId]/page.tsx`**: Added overall leaderboard fetch (`/api/leagues/${leagueId}/leaderboard`) to the existing `Promise.all` on mount. Top 3 entries stored in state and passed to `PodiumDisplay`, which renders above the active slate section. Renders nothing if no picks have been scored yet (empty entries array).
+
 ## 2026-04-09 (fix: background color now responds to theme changes)
 
 **`app/globals.css`**: Added `--background` and `--foreground` overrides to each `html[data-theme="X"]` block. The `body` rule uses `background: var(--background)` directly (not a Tailwind utility), so overriding only `--color-slate-950` in the theme blocks left the page background stuck at the default `#0f172a` regardless of selected theme. Each theme now also sets `--background` (matching its `slate-950` value) and `--foreground` (matching its text color), so the full page background changes on theme switch.

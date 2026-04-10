@@ -185,6 +185,7 @@ https://a.espncdn.com/i/teamlogos/ncaa/500/{id}.png       (college)
 | `app/components/nav.tsx` | Persistent top navigation bar |
 | `app/components/skeleton.tsx` | Animated loading placeholder primitives |
 | `app/components/empty-state.tsx` | Reusable empty state with icon, title, description, actions |
+| `app/components/podium.tsx` | Pixel art SVG Olympic podium — top-3 leaderboard visual for league home page |
 
 ---
 
@@ -219,6 +220,29 @@ Tailwind 4 generates utility classes as `var(--color-*)` references, so overridi
 **API changes:** None.
 
 **Post-completion fix:** Each theme block in `globals.css` now also overrides `--background` and `--foreground`. The `body` rule uses `background: var(--background)` directly rather than a Tailwind utility, so without this fix the page background remained `#0f172a` on all themes.
+
+---
+
+### 9. Homepage & League Hub Visual Enhancement
+
+**Status: Complete**
+
+Overhauled the two highest-traffic pages to feel less minimal and more like a real sports product.
+
+**Homepage (`app/page.tsx`):**
+- *Unauthenticated state:* Replaced simple centered text with a full-viewport hero. A 60-tile decorative emoji grid (🏈🏀⚾🏒🏆📊) at 3.5% opacity fills the background. Content includes a pill badge ("Sports Pick'em"), a two-tone "Lock**Hub**" wordmark at 6xl/7xl, a tagline, a shadow-accented CTA button, and a feature highlights row (Create Leagues / Submit Picks / Track Standings).
+- *Authenticated state:* Added a welcome banner card with a blue-950 gradient, trophy decoration (7% opacity), and a personalized greeting using the user's first name plus a league-count blurb. League list cards now include a sport emoji icon badge (`sportEmoji()` helper maps NFL/NBA/MLB/NHL/NCAAF/NCAAB), a hover-animated arrow, and Create/Join buttons repositioned to the section header.
+
+**League home page (`app/leagues/[leagueId]/page.tsx`):**
+- Fetches `/api/leagues/${leagueId}/leaderboard` in parallel with the existing league/games/slates fetches.
+- Top 3 entries rendered via `<PodiumDisplay>` at the top of the page.
+
+**New file `app/components/podium.tsx`:**
+- `PixelFigure` — SVG pixel art character (12×14 viewBox, 60×70px rendered, `shapeRendering="crispEdges"`) with arms raised in victory. Each "pixel" is a `<rect>` with integer coordinates.
+- `PodiumDisplay` — Olympic arrangement (2nd left, 1st center, 3rd right). Podium block heights: h-24 (1st), h-16 (2nd), h-10 (3rd). Colors: gold `#f59e0b`, silver-slate `#94a3b8`, bronze `#b45309`. Shows score (correct/total) above figure and truncated name below. Links to full leaderboard. Renders nothing if entries array is empty.
+
+**Schema changes:** None.
+**API changes:** None — uses existing `/leaderboard` endpoint.
 
 ---
 

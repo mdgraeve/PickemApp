@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PageLoader } from "@/app/components/skeleton";
 import { getTeamLogoUrl } from "@/lib/team-logos";
+import { PodiumDisplay, type PodiumEntry } from "@/app/components/podium";
 
 type League = {
   id: string;
@@ -89,7 +90,7 @@ function getWinner(game: Game): string | null {
 }
 
 export default function LeaguePage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const params = useParams();
   const router = useRouter();
   const leagueId = params.leagueId as string;
@@ -102,6 +103,7 @@ export default function LeaguePage() {
   const [tbInputs, setTbInputs] = useState<Record<string, string>>({});
   const [tbSubmitting, setTbSubmitting] = useState<string | null>(null);
   const [tbErrors, setTbErrors] = useState<Record<string, string>>({});
+  const [leaderboard, setLeaderboard] = useState<PodiumEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pickSubmitting, setPickSubmitting] = useState<string | null>(null);
@@ -117,8 +119,9 @@ export default function LeaguePage() {
       fetch(`/api/leagues/${leagueId}`),
       fetch(`/api/leagues/${leagueId}/games`),
       fetch(`/api/leagues/${leagueId}/slates`),
+      fetch(`/api/leagues/${leagueId}/leaderboard`),
     ])
-      .then(async ([leagueRes, gamesRes, slatesRes]) => {
+      .then(async ([leagueRes, gamesRes, slatesRes, lbRes]) => {
         if (!leagueRes.ok) {
           const d = await leagueRes.json().catch(() => ({}));
           throw new Error(d.error ?? `Error ${leagueRes.status}`);
@@ -127,13 +130,19 @@ export default function LeaguePage() {
           const d = await gamesRes.json().catch(() => ({}));
           throw new Error(d.error ?? `Error ${gamesRes.status}`);
         }
-        return Promise.all([leagueRes.json(), gamesRes.json(), slatesRes.ok ? slatesRes.json() : []]);
+        return Promise.all([
+          leagueRes.json(),
+          gamesRes.json(),
+          slatesRes.ok ? slatesRes.json() : [],
+          lbRes.ok ? lbRes.json() : [],
+        ]);
       })
-      .then(async ([leagueData, gamesData, slatesData]) => {
+      .then(async ([leagueData, gamesData, slatesData, lbData]) => {
         setLeague(leagueData);
         setSlate(gamesData.slate);
         setGames(gamesData.games);
         setPastSlates((slatesData as SlateListItem[]).filter((s) => s.status === "completed"));
+        setLeaderboard((lbData as PodiumEntry[]).slice(0, 3));
 
         if (gamesData.slate) {
           const tbRes = await fetch(
@@ -227,6 +236,11 @@ export default function LeaguePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 space-y-8">
+      {/* Podium leaderboard summary */}
+      {leaderboard.length > 0 && (
+        <PodiumDisplay entries={leaderboard} leagueId={leagueId} />
+      )}
+
       {/* Active slate */}
       {!slate ? (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 px-6 py-12 text-center space-y-3">
