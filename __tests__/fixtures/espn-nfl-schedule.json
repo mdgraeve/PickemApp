@@ -1,0 +1,58 @@
+{
+  "events": [
+    {
+      "id": "401547417",
+      "date": "2026-09-07T00:20:00Z",
+      "status": {
+        "type": {
+          "name": "STATUS_SCHEDULED",
+          "completed": false,
+          "description": "Scheduled"
+        }
+      },
+      "competitions": [
+        {
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": { "displayName": "Kansas City Chiefs" },
+              "score": "0"
+            },
+            {
+              "homeAway": "away",
+              "team": { "displayName": "Baltimore Ravens" },
+              "score": "0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401547418",
+      "date": "2026-09-07T17:00:00Z",
+      "status": {
+        "type": {
+          "name": "STATUS_SCHEDULED",
+          "completed": false,
+          "description": "Scheduled"
+        }
+      },
+      "competitions": [
+        {
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": { "displayName": "Dallas Cowboys" },
+              "score": "0"
+            },
+            {
+              "homeAway": "away",
+              "team": { "displayName": "New York Giants" },
+              "score": "0"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

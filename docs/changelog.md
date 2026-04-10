@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-04-09 (Phase 5 Task 0: ESPN client module — lib/espn.ts)
+
+**`lib/espn.ts`** *(new)*: ESPN API client — the single boundary between the app and ESPN's public scoreboard API. No other file should fetch from ESPN directly.
+
+- `ESPNGame` type: `{ id, homeTeam, awayTeam, scheduledAt, status, homeScore, awayScore }`
+- `ESPNGameStatus`: `"scheduled" | "in_progress" | "completed"`
+- `ESPN_PATHS` map: all 6 sports → ESPN scoreboard path segments
+- `parseESPNEvents(raw)`: pure function converting raw ESPN JSON → `ESPNGame[]`; exported for unit testing without HTTP. Skips events missing a competition or a home/away competitor. Maps `completed: true` → `"completed"`, `STATUS_IN_PROGRESS / STATUS_HALFTIME / STATUS_END_PERIOD` → `"in_progress"`, everything else → `"scheduled"`. Scores set to `null` for non-completed games and on parse failure.
+- `fetchESPNSchedule(sport, season)`: fetches schedule with `?limit=100&season=X`; intended for schedule-import admin route (Task 2)
+- `fetchESPNScoreboard(sport)`: fetches current scoreboard with `?limit=100`; intended for score-sync cron (Task 3)
+- Both fetch functions throw a descriptive `Error` on non-ok HTTP responses.
+
+**`lib/__tests__/espn.test.ts`** *(new)*: 28 unit tests covering schedule fixture parsing, scoreboard fixture parsing (all three statuses), live status variants (STATUS_HALFTIME, STATUS_END_PERIOD, STATUS_FINAL_OT), edge cases (empty events, missing competition/competitor, unparseable scores), URL construction per sport, and HTTP error handling via `vi.stubGlobal('fetch', ...)`.
+
+**`__tests__/fixtures/espn-nfl-schedule.json`** *(new)*: 2 STATUS_SCHEDULED games; used by the parser tests and will be reused by Task 2 route tests.
+
+**`__tests__/fixtures/espn-nfl-scoreboard.json`** *(new)*: 1 STATUS_FINAL (with scores 27–20), 1 STATUS_IN_PROGRESS, 1 STATUS_SCHEDULED; used by parser tests and will be reused by Task 3 route tests.
+
+Test count: 171 → 199 (all passing).
+
+## 2026-04-09 (docs: phase 5 plan finalized — decisions, testing strategy, cron notes)
+
+**`docs/phase-5.md`**: Significantly expanded before implementation begins.
+- **Task 0 added** (`lib/espn.ts`): explicit prerequisite task to create the ESPN client module as a test seam before Tasks 2 and 3. All ESPN HTTP calls live here; route handlers never touch raw ESPN JSON; Vitest mocks this module with fixtures.
+- **App-level admin gating decided**: `APP_ADMIN_EMAILS` env variable (comma-separated email list checked server-side against `session.user.email`). Rationale: no User model change needed, no migration, no chicken-and-egg deployment problem; "app admin" is an operational concern with no planned UI, not a user-facing feature.
+- **Cron discovery logic specified**: `POST /api/cron/sync-scores` queries for distinct sports that have active slates (one ESPN fetch per sport, not per league) before making any outbound calls.
+- **Re-entrancy and idempotency requirements added to Task 3**: cron must return `200` (not an error) when nothing changes (prevents Vercel retry loops); score writes are `update` not `create` (safe to re-run); slate promotion guards already exist (`wasAlreadyCompleted`).
+- **Testing section added**: per-task scope table; fixture JSON strategy; manual curl command for testing the cron endpoint locally without Vercel.
+
+**`docs/architecture.md`**: Added sections for ESPN API client (`lib/espn.ts`), app-level admin pattern (`APP_ADMIN_EMAILS`), and cron job infrastructure. Updated key directories list to include `app/api/admin/`, `app/api/cron/`, and `app/admin/`.
+
+**`CLAUDE.md`**: Added `APP_ADMIN_EMAILS` and `CRON_SECRET` to env vars; added Phase 5 routes to API table; updated `SportGame` and `Game` data model descriptions to include `espnId`/`espnGameId`; added `lib/espn.ts` to key libraries; updated phase status to reflect Phases 3 and 4 complete.
+
 ## 2026-04-09 (UI: homepage hero + league page podium leaderboard)
 
 **`app/page.tsx`**: Redesigned both authenticated and unauthenticated states.

@@ -1,0 +1,85 @@
+{
+  "events": [
+    {
+      "id": "401547417",
+      "date": "2026-09-07T00:20:00Z",
+      "status": {
+        "type": {
+          "name": "STATUS_FINAL",
+          "completed": true,
+          "description": "Final"
+        }
+      },
+      "competitions": [
+        {
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": { "displayName": "Kansas City Chiefs" },
+              "score": "27"
+            },
+            {
+              "homeAway": "away",
+              "team": { "displayName": "Baltimore Ravens" },
+              "score": "20"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401547418",
+      "date": "2026-09-07T17:00:00Z",
+      "status": {
+        "type": {
+          "name": "STATUS_IN_PROGRESS",
+          "completed": false,
+          "description": "In Progress"
+        }
+      },
+      "competitions": [
+        {
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": { "displayName": "Dallas Cowboys" },
+              "score": "14"
+            },
+            {
+              "homeAway": "away",
+              "team": { "displayName": "New York Giants" },
+              "score": "7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401547419",
+      "date": "2026-09-07T20:25:00Z",
+      "status": {
+        "type": {
+          "name": "STATUS_SCHEDULED",
+          "completed": false,
+          "description": "Scheduled"
+        }
+      },
+      "competitions": [
+        {
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": { "displayName": "San Francisco 49ers" },
+              "score": "0"
+            },
+            {
+              "homeAway": "away",
+              "team": { "displayName": "Los Angeles Rams" },
+              "score": "0"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
