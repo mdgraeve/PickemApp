@@ -79,9 +79,11 @@ export default function AdminPage() {
 
   // Add games panel
   const [addGamesSlateId, setAddGamesSlateId] = useState<string | null>(null);
+  const [espnDate, setEspnDate] = useState("");
   const [sportGames, setSportGames] = useState<SportGame[]>([]);
   const [selectedSportGameIds, setSelectedSportGameIds] = useState<Set<string>>(new Set());
-  const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [syncingEspn, setSyncingEspn] = useState(false);
+  const [syncEspnResult, setSyncEspnResult] = useState<string | null>(null);
   const [addingGames, setAddingGames] = useState(false);
   const [addGamesError, setAddGamesError] = useState<string | null>(null);
 
@@ -257,17 +259,42 @@ export default function AdminPage() {
     setAddGamesSlateId(slateId);
     setSelectedSportGameIds(new Set());
     setAddGamesError(null);
-    if (sportGames.length > 0) return;
-    setLoadingSchedule(true);
+    setSyncEspnResult(null);
+    setSportGames([]);
+    setEspnDate("");
+  }
+
+  async function handleSyncEspn(slateId: string) {
+    if (!espnDate) return;
+    setSyncingEspn(true);
+    setSyncEspnResult(null);
+    setAddGamesError(null);
+    // Clear the game list immediately so stale results never linger
+    setSportGames([]);
+    setSelectedSportGameIds(new Set());
     try {
-      const sport = league?.sport ?? "";
-      const res = await fetch(`/api/sport-games?sport=${encodeURIComponent(sport)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSportGames(data);
+      const dateParam = espnDate.replace(/-/g, "");
+      const res = await fetch(
+        `/api/leagues/${leagueId}/slates/${slateId}/sync-espn`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date: dateParam }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setAddGamesError(data.error ?? "ESPN sync failed");
+        return;
       }
+      setSyncEspnResult(`Synced: ${data.inserted} new, ${data.updated} updated`);
+      // Use the games returned by the endpoint — these are the exact rows ESPN
+      // provided for this date, so there's no timezone-boundary ambiguity.
+      setSportGames(data.games ?? []);
+    } catch {
+      setAddGamesError("Network error during ESPN sync");
     } finally {
-      setLoadingSchedule(false);
+      setSyncingEspn(false);
     }
   }
 
@@ -534,11 +561,38 @@ export default function AdminPage() {
                       {/* Add games */}
                       <div className="pt-4 border-t border-slate-800">
                         {addGamesSlateId === slate.id ? (
-                          <form onSubmit={handleAddGames} className="space-y-4">
-                            <p className="text-sm font-semibold text-slate-300">Add games from schedule</p>
-                            {loadingSchedule ? (
-                              <p className="text-sm text-slate-500">Loading schedule...</p>
-                            ) : (() => {
+                          <div className="space-y-4">
+                            <p className="text-sm font-semibold text-slate-300">Add games from ESPN</p>
+
+                            {/* Date picker + sync */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="date"
+                                value={espnDate}
+                                onChange={(e) => {
+                                  setEspnDate(e.target.value);
+                                  setSyncEspnResult(null);
+                                  setSportGames([]);
+                                  setSelectedSportGameIds(new Set());
+                                }}
+                                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSyncEspn(slate.id)}
+                                disabled={!espnDate || syncingEspn}
+                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+                              >
+                                {syncingEspn ? "Syncing…" : "Sync from ESPN"}
+                              </button>
+                              {syncEspnResult && (
+                                <span className="text-xs text-green-400">{syncEspnResult}</span>
+                              )}
+                            </div>
+
+                            {/* Game list */}
+                            {(() => {
+                              if (!espnDate) return null;
                               const existingKeys = new Set(
                                 (slateGames[slate.id] ?? []).map(
                                   (g) => `${g.homeTeam}|${g.awayTeam}|${new Date(g.startTime).getTime()}`,
@@ -553,65 +607,64 @@ export default function AdminPage() {
                               return available.length === 0 ? (
                                 <p className="text-sm text-slate-500">
                                   {sportGames.length === 0
-                                    ? <>No games found for {league?.sport}. Run{" "}
-                                        <code className="text-xs bg-slate-800 px-1 rounded">
-                                          npx prisma db seed
-                                        </code>{" "}
-                                        to populate the schedule.</>
-                                    : "All scheduled games have already been added to this slate."}
+                                    ? "Pick a date and click Sync from ESPN."
+                                    : "All games for this date have already been added to this slate."}
                                 </p>
                               ) : (
-                                <ul className="space-y-1 max-h-64 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
-                                  {available.map((sg) => (
-                                    <li key={sg.id} className="flex items-start gap-2 text-sm py-1.5">
-                                      <input
-                                        type="checkbox"
-                                        id={`sg-${sg.id}`}
-                                        checked={selectedSportGameIds.has(sg.id)}
-                                        onChange={(e) => {
-                                          setSelectedSportGameIds((prev) => {
-                                            const next = new Set(prev);
-                                            if (e.target.checked) { next.add(sg.id); } else { next.delete(sg.id); }
-                                            return next;
-                                          });
-                                        }}
-                                        className="mt-0.5 shrink-0 rounded border-slate-700 bg-slate-800 accent-blue-500"
-                                      />
-                                      <label htmlFor={`sg-${sg.id}`} className="cursor-pointer text-slate-300 space-y-0.5">
-                                        <div>
-                                          <span className="font-medium text-white">{sg.awayTeam}</span>
-                                          <span className="text-slate-500 mx-1">@</span>
-                                          <span className="font-medium text-white">{sg.homeTeam}</span>
-                                        </div>
-                                        <div className="text-xs text-slate-500">{formatDateTime(sg.scheduledAt)}</div>
-                                      </label>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <form onSubmit={handleAddGames}>
+                                  <ul className="space-y-1 max-h-64 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4">
+                                    {available.map((sg) => (
+                                      <li key={sg.id} className="flex items-start gap-2 text-sm py-1.5">
+                                        <input
+                                          type="checkbox"
+                                          id={`sg-${sg.id}`}
+                                          checked={selectedSportGameIds.has(sg.id)}
+                                          onChange={(e) => {
+                                            setSelectedSportGameIds((prev) => {
+                                              const next = new Set(prev);
+                                              if (e.target.checked) { next.add(sg.id); } else { next.delete(sg.id); }
+                                              return next;
+                                            });
+                                          }}
+                                          className="mt-0.5 shrink-0 rounded border-slate-700 bg-slate-800 accent-blue-500"
+                                        />
+                                        <label htmlFor={`sg-${sg.id}`} className="cursor-pointer text-slate-300 space-y-0.5">
+                                          <div>
+                                            <span className="font-medium text-white">{sg.awayTeam}</span>
+                                            <span className="text-slate-500 mx-1">@</span>
+                                            <span className="font-medium text-white">{sg.homeTeam}</span>
+                                          </div>
+                                          <div className="text-xs text-slate-500">{formatDateTime(sg.scheduledAt)}</div>
+                                        </label>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="submit"
+                                      disabled={addingGames || selectedSportGameIds.size === 0}
+                                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+                                    >
+                                      {addingGames
+                                        ? "Adding..."
+                                        : `Add ${selectedSportGameIds.size > 0 ? selectedSportGameIds.size + " " : ""}game${selectedSportGameIds.size !== 1 ? "s" : ""}`}
+                                    </button>
+                                  </div>
+                                </form>
                               );
                             })()}
+
                             {addGamesError && (
                               <p className="text-sm text-red-400">{addGamesError}</p>
                             )}
-                            <div className="flex gap-2">
-                              <button
-                                type="submit"
-                                disabled={addingGames || selectedSportGameIds.size === 0}
-                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
-                              >
-                                {addingGames
-                                  ? "Adding..."
-                                  : `Add ${selectedSportGameIds.size > 0 ? selectedSportGameIds.size + " " : ""}game${selectedSportGameIds.size !== 1 ? "s" : ""}`}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setAddGamesSlateId(null)}
-                                className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </form>
+                            <button
+                              type="button"
+                              onClick={() => setAddGamesSlateId(null)}
+                              className="text-sm text-slate-500 hover:text-slate-300 transition"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         ) : (
                           <button
                             onClick={() => openAddGames(slate.id)}

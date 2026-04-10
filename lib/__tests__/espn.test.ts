@@ -273,23 +273,23 @@ describe("fetchESPNSchedule", () => {
       vi.fn().mockResolvedValue({ ok: false, status: 503, statusText: "Service Unavailable" }),
     );
 
-    await expect(fetchESPNSchedule("NFL", "2026")).rejects.toThrow(
+    await expect(fetchESPNSchedule("NFL", "20260914")).rejects.toThrow(
       "ESPN API request failed: 503 Service Unavailable",
     );
   });
 
-  it("calls the correct ESPN URL for a given sport and season", async () => {
+  it("calls the correct ESPN URL for a given sport and date", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ events: [] }),
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    await fetchESPNSchedule("NFL", "2026");
+    await fetchESPNSchedule("NFL", "20260914");
 
     const calledUrl = mockFetch.mock.calls[0][0] as string;
     expect(calledUrl).toContain("football/nfl/scoreboard");
-    expect(calledUrl).toContain("season=2026");
+    expect(calledUrl).toContain("dates=20260914");
     expect(calledUrl).toContain("limit=100");
   });
 
@@ -300,7 +300,7 @@ describe("fetchESPNSchedule", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    await fetchESPNSchedule("NBA", "2026");
+    await fetchESPNSchedule("NBA", "20260914");
 
     const calledUrl = mockFetch.mock.calls[0][0] as string;
     expect(calledUrl).toContain("basketball/nba/scoreboard");

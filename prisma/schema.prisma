@@ -112,6 +112,7 @@ model SportGame {
   awayTeam    String
   scheduledAt DateTime
   season      String
+  espnId      String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -140,17 +141,18 @@ model Slate {
 }
 
 model Game {
-  id        String   @id @default(cuid())
-  leagueId  String
-  slateId   String?
-  homeTeam  String
-  awayTeam  String
-  startTime DateTime
-  homeScore Int?
-  awayScore Int?
-  status    String   @default("scheduled")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  leagueId    String
+  slateId     String?
+  homeTeam    String
+  awayTeam    String
+  startTime   DateTime
+  homeScore   Int?
+  awayScore   Int?
+  status      String   @default("scheduled")
+  espnGameId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   league League  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   slate  Slate?  @relation(fields: [slateId], references: [id])

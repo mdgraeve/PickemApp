@@ -19,12 +19,15 @@ Key directories:
 
 - `app/api/leagues/` -- REST API routes (leagues, games, picks, leaderboard, slates)
 - `app/api/sport-games/` -- master schedule query endpoint
+- `app/api/admin/` -- app-level admin routes (schedule sync); gated by `APP_ADMIN_EMAILS` env var
+- `app/api/cron/` -- cron job endpoints (score sync); gated by `x-cron-secret` header
 - `app/api/users/` -- user profile and settings routes (`GET /[userId]`, `PATCH /me`)
 - `app/api/leagues/[leagueId]/slates/[slateId]/tiebreakers/` -- tie-breaker question CRUD and response submission
 - `app/leagues/` -- UI pages for league features (home, games/picks, leaderboard, slate history, admin)
+- `app/admin/` -- app-level admin page (`/admin`); accessible to emails listed in `APP_ADMIN_EMAILS`
 - `app/profile/` -- user profile page (`/profile/[userId]`)
 - `app/settings/` -- current user settings page
-- `lib/` -- shared utilities, database client, auth config
+- `lib/` -- shared utilities, database client, auth config, ESPN API client
 - `prisma/` -- schema and migrations
 - `public/` -- static assets
 - `docs/` -- project documentation (this folder)
@@ -57,3 +60,19 @@ NextAuth v4 with the Prisma adapter. Sessions are stored in the database via the
 - **Slate** -- named round within a league (position, status: upcoming/active/completed); one active at a time
 - **Game** -- a matchup within a slate (home vs. away, start time, scores, status)
 - **Pick** -- a user's prediction for a game (one per user per game); locked 30 min before first game in slate
+
+## ESPN API Client
+
+`lib/espn.ts` is the single boundary between the app and ESPN's public (undocumented) scoreboard API. All ESPN HTTP calls go through this module — nothing ESPN-related is fetched elsewhere. Route handlers receive clean `ESPNGame[]` objects; they never touch raw ESPN JSON.
+
+This design means:
+- Migrating to a paid data provider only requires changing `lib/espn.ts`
+- Route tests mock `lib/espn.ts` with `vi.mock()` and fixture JSON — no real HTTP calls in tests
+
+## App-level admin
+
+"App admin" (who can trigger schedule syncs) is separate from "league admin" (who can manage a specific league). App-level admin is gated by the `APP_ADMIN_EMAILS` environment variable (comma-separated email list) checked server-side against `session.user.email`. There is no `isAppAdmin` flag on the `User` model — this is an operational concern, not a user-facing feature.
+
+## Cron jobs
+
+Background score-sync runs via Vercel Cron, which calls `POST /api/cron/sync-scores` on a schedule. The endpoint is authenticated with an `x-cron-secret` header (checked against the `CRON_SECRET` env var). The endpoint is idempotent — safe to call multiple times; it always returns `200` even when there is nothing to update, to prevent Vercel retry loops.

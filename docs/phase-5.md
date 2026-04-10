@@ -95,7 +95,7 @@ The sport → ESPN-path mapping (`NFL → football/nfl`, etc.) lives here. The E
 
 ### 1. ESPN game ID fields
 
-**Status: Not started**
+**Status: Complete**
 
 Add `espnId` to `SportGame` and `espnGameId` to `Game`. Update the slate game-population route (`POST /slates/[slateId]/games`) to copy `espnId → espnGameId` when creating `Game` rows from `SportGame` rows.
 
@@ -105,31 +105,54 @@ Add `espnId` to `SportGame` and `espnGameId` to `Game`. Update the slate game-po
 
 **API changes:** None visible to clients — the copy happens server-side.
 
-**Files changed:** `prisma/schema.prisma`, migration, `app/api/leagues/[leagueId]/slates/[slateId]/games/route.ts`
+**Files changed:**
+- `prisma/schema.prisma` — added `espnId` and `espnGameId` fields
+- `prisma/migrations/20260409000000_add_espn_ids/migration.sql` — migration (applied)
+- `app/api/leagues/[leagueId]/slates/[slateId]/games/route.ts` — `createMany` now includes `espnGameId: sg.espnId ?? null`
+- `app/api/leagues/[leagueId]/slates/[slateId]/games/__tests__/route.test.ts` — 2 new tests asserting `espnGameId` is copied; `espnId`/`espnGameId` added to fixtures
 
 ---
 
 ### 2. Schedule import
 
-**Status: Not started**
+**Status: Complete**
 
-An admin-facing API route and UI button that fetches upcoming games from ESPN and upserts them into the `SportGame` table (match on `espnId`; update `scheduledAt`, `homeTeam`, `awayTeam` if changed; insert if new). Replaces the `npx prisma db seed` manual step.
+Games are imported from ESPN per calendar date (not per season). Two entry points exist:
 
-**Admin gating:**
-- Returns `401` if the request has no valid session.
-- Returns `403` if `session.user.email` is not present in the `APP_ADMIN_EMAILS` env variable.
+1. **League admin sync** — the primary path. League admins pick a date in their slate management panel; games sync directly into `SportGame` and appear for selection. No `APP_ADMIN_EMAILS` required.
+2. **App-level bulk sync** — `/admin` page for operators; useful for pre-populating multiple sports at once.
+
+ESPN's scoreboard endpoint uses `?dates=YYYYMMDD` (not `?season=YYYY`) — the season parameter caused 500 errors. Season is derived from the year portion of the date string.
+
+**Auth:**
+- League sync: session + league admin role.
+- App-level sync: session + `APP_ADMIN_EMAILS` env var.
+- Both return `401` with no session, `403` if role/email check fails.
 
 **API:**
 
 | Route | Auth | Notes |
 |---|---|---|
-| `POST /api/admin/sync-schedule` | session + `APP_ADMIN_EMAILS` check | Accepts `{ sport, season }`; calls `fetchESPNSchedule`; upserts SportGame rows; returns `{ inserted: number, updated: number }` |
+| `POST /api/leagues/[leagueId]/slates/[slateId]/sync-espn` | session + league admin | Accepts `{ date: "YYYYMMDD" }`; reads league sport; calls `fetchESPNSchedule`; upserts SportGame rows; returns `{ inserted, updated }` |
+| `POST /api/admin/sync-schedule` | session + `APP_ADMIN_EMAILS` | Accepts `{ sport, date: "YYYYMMDD" }`; same upsert logic; returns `{ inserted, updated }` |
+| `GET /api/sport-games` | session | Now supports `?date=YYYYMMDD` in addition to `?season=`; filters `scheduledAt` to a 24-hour UTC window |
 
-**UI:** New app-level admin page at `/admin` (not per-league) with a "Sync schedule" button per sport. Only reachable/useful for users whose email is in `APP_ADMIN_EMAILS`.
+**UI:** The "Add games from schedule" panel on the league admin page has a date picker and a "Sync from ESPN" button. Picking a date loads existing games for that date; clicking Sync fetches from ESPN, upserts, and refreshes the list. Games can then be checked and added to the slate.
 
-**Files changed:** `app/api/admin/sync-schedule/route.ts` (new), `app/admin/page.tsx` (new)
+**Files changed/added:**
+- `app/api/leagues/[leagueId]/slates/[slateId]/sync-espn/route.ts` *(new)* — league admin sync endpoint
+- `app/api/leagues/[leagueId]/slates/[slateId]/sync-espn/__tests__/route.test.ts` *(new)* — 11 tests
+- `app/api/admin/sync-schedule/route.ts` — updated: `season` param → `date` (YYYYMMDD), season derived from date, GET debug endpoint removed
+- `app/admin/page.tsx` — season text input → date picker
+- `app/api/sport-games/route.ts` — added `?date=YYYYMMDD` filter
+- `app/api/admin/sync-schedule/__tests__/route.test.ts` — updated for date param
+- `app/api/sport-games/__tests__/route.test.ts` — added date filter test
+- `lib/espn.ts` — `fetchESPNSchedule` param renamed `date`; uses `?dates=YYYYMMDD`
+- `lib/__tests__/espn.test.ts` — updated for date param
+- `app/leagues/[leagueId]/admin/page.tsx` — redesigned add-games panel
+
 **Schema changes:** None beyond Task 1.
-**API changes:** New route only.
+**API changes:** New route; updated sport-games filter; sync-schedule body changed.
 
 ---
 
@@ -267,8 +290,8 @@ Check the response body for the sync summary. Verify updated `Game` rows in Pris
 
 | Change | Model | Field | Status |
 |---|---|---|---|
-| Add ESPN game ID | `SportGame` | `espnId String? @unique` | Not started |
-| Add ESPN game ID | `Game` | `espnGameId String?` | Not started |
+| Add ESPN game ID | `SportGame` | `espnId String? @unique` | **Complete** |
+| Add ESPN game ID | `Game` | `espnGameId String?` | **Complete** |
 
 ---
 
@@ -277,9 +300,9 @@ Check the response body for the sync summary. Verify updated `Game` rows in Pris
 | Requirement | Supported now? | Notes |
 |---|---|---|
 | ESPN client module | **Yes** | `lib/espn.ts` — Task 0 complete |
-| ESPN game ID on SportGame | No | No external ID stored |
-| ESPN game ID on Game | No | No external ID stored |
-| Schedule import from ESPN | No | Manual seed script only |
+| ESPN game ID on SportGame | **Yes** | `espnId String? @unique` — Task 1 complete |
+| ESPN game ID on Game | **Yes** | `espnGameId String?` — Task 1 complete |
+| Schedule import from ESPN | **Yes** | `POST /api/leagues/[leagueId]/slates/[slateId]/sync-espn` (league admin) + `POST /api/admin/sync-schedule` (app admin) — Task 2 complete |
 | Score auto-sync | No | Manual admin score entry only |
 | Cron infrastructure | No | No background jobs |
 | App-level admin gating | No | `APP_ADMIN_EMAILS` env var not wired up yet |

@@ -37,13 +37,13 @@ const fakeSlate = { id: slateId, leagueId, name: "Week 1", position: 1, status: 
 const fakeLeague = { id: leagueId, name: "Test League", sport: "NFL" };
 
 const fakeSportGames = [
-  { id: "sg-1", sport: "NFL", homeTeam: "Chiefs", awayTeam: "Ravens", scheduledAt: new Date("2026-09-06T20:20:00Z"), season: "2026" },
-  { id: "sg-2", sport: "NFL", homeTeam: "Cowboys", awayTeam: "Giants", scheduledAt: new Date("2026-09-07T17:00:00Z"), season: "2026" },
+  { id: "sg-1", sport: "NFL", homeTeam: "Chiefs", awayTeam: "Ravens", scheduledAt: new Date("2026-09-06T20:20:00Z"), season: "2026", espnId: "espn-401547417" },
+  { id: "sg-2", sport: "NFL", homeTeam: "Cowboys", awayTeam: "Giants", scheduledAt: new Date("2026-09-07T17:00:00Z"), season: "2026", espnId: null },
 ];
 
 const fakeCreatedGames = [
-  { id: "game-1", leagueId, slateId, homeTeam: "Chiefs", awayTeam: "Ravens", startTime: new Date("2026-09-06T20:20:00Z"), homeScore: null, awayScore: null, status: "scheduled" },
-  { id: "game-2", leagueId, slateId, homeTeam: "Cowboys", awayTeam: "Giants", startTime: new Date("2026-09-07T17:00:00Z"), homeScore: null, awayScore: null, status: "scheduled" },
+  { id: "game-1", leagueId, slateId, homeTeam: "Chiefs", awayTeam: "Ravens", startTime: new Date("2026-09-06T20:20:00Z"), homeScore: null, awayScore: null, status: "scheduled", espnGameId: "espn-401547417" },
+  { id: "game-2", leagueId, slateId, homeTeam: "Cowboys", awayTeam: "Giants", startTime: new Date("2026-09-07T17:00:00Z"), homeScore: null, awayScore: null, status: "scheduled", espnGameId: null },
 ];
 
 const fakeGetRequest = new Request(`http://localhost/api/leagues/${leagueId}/slates/${slateId}/games`);
@@ -264,5 +264,45 @@ describe("POST /api/leagues/[leagueId]/slates/[slateId]/games", () => {
 
     expect(response.status).toBe(201);
     expect(body).toHaveLength(2);
+  });
+
+  it("copies espnId from SportGame into espnGameId on the created Game", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(adminMembership);
+    mockSlateFindUnique.mockResolvedValue(fakeSlate);
+    mockLeagueFindUnique.mockResolvedValue(fakeLeague);
+    mockSportGameFindMany.mockResolvedValue(fakeSportGames);
+    mockGameCreateMany.mockResolvedValue({ count: 2 });
+    mockGameFindMany.mockResolvedValue(fakeCreatedGames);
+
+    await POST(makePostRequest({ sportGameIds: ["sg-1", "sg-2"] }), fakeContext);
+
+    expect(mockGameCreateMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ homeTeam: "Chiefs", espnGameId: "espn-401547417" }),
+        expect.objectContaining({ homeTeam: "Cowboys", espnGameId: null }),
+      ]),
+    });
+  });
+
+  it("sets espnGameId to null when source SportGame has no espnId", async () => {
+    const sportGameWithoutEspnId = [
+      { id: "sg-3", sport: "NFL", homeTeam: "Eagles", awayTeam: "Bears", scheduledAt: new Date("2026-09-08T17:00:00Z"), season: "2026", espnId: null },
+    ];
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockMemberFindUnique.mockResolvedValue(adminMembership);
+    mockSlateFindUnique.mockResolvedValue(fakeSlate);
+    mockLeagueFindUnique.mockResolvedValue(fakeLeague);
+    mockSportGameFindMany.mockResolvedValue(sportGameWithoutEspnId);
+    mockGameCreateMany.mockResolvedValue({ count: 1 });
+    mockGameFindMany.mockResolvedValue([]);
+
+    await POST(makePostRequest({ sportGameIds: ["sg-3"] }), fakeContext);
+
+    expect(mockGameCreateMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ homeTeam: "Eagles", espnGameId: null }),
+      ]),
+    });
   });
 });

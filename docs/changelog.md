@@ -1,5 +1,67 @@
 # Changelog
 
+## 2026-04-09 (Phase 5: date-based ESPN sync + league-context sync-espn endpoint)
+
+**Why:** ESPN's scoreboard endpoint does not reliably support a bare `season` year parameter — passing `?season=2026` returned 500 errors. Switched to `?dates=YYYYMMDD`, which is a known working parameter. At the same time, moved the primary sync UX from the app-level `/admin` page into the league admin panel so league admins can populate slates directly without needing app-level credentials.
+
+**`lib/espn.ts`**: `fetchESPNSchedule(sport, date)` now accepts an 8-digit date string (`YYYYMMDD`) and passes it to ESPN as `?dates=YYYYMMDD`. Previously accepted a season year and used `?season=`. `fetchESPNScoreboard` is unchanged.
+
+**`app/api/admin/sync-schedule/route.ts`**: Accepts `{ sport, date }` in the request body (was `{ sport, season }`). Validates `date` as `/^\d{8}$/`. Derives `season` from `date.substring(0, 4)` for `SportGame.season` storage. Removed the temporary GET debug endpoint.
+
+**`app/admin/page.tsx`**: Season text input replaced with a `<input type="date">` picker. Converts `YYYY-MM-DD` → `YYYYMMDD` before sending to the API.
+
+**`app/api/leagues/[leagueId]/slates/[slateId]/sync-espn/route.ts`** *(new)*: `POST` handler callable by league admins (no `APP_ADMIN_EMAILS` required). Reads the league's `sport` from the DB, accepts `{ date: "YYYYMMDD" }`, calls `fetchESPNSchedule`, upserts into `SportGame`, returns `{ inserted, updated }`. Same upsert logic as the app-admin route.
+
+**`app/api/sport-games/route.ts`**: Added optional `?date=YYYYMMDD` query param that filters `scheduledAt` to a 24-hour UTC window (`gte: startOfDay, lt: startOfNextDay`). Existing `?season=` and bare `?sport=` still work unchanged.
+
+**`app/leagues/[leagueId]/admin/page.tsx`**: "Add games from schedule" panel redesigned:
+- Date picker at the top (no pre-loaded game list)
+- Selecting a date auto-fetches existing `SportGame` rows for that date from `GET /api/sport-games?sport=…&date=…`
+- "Sync from ESPN" button calls the new `POST /api/leagues/[leagueId]/slates/[slateId]/sync-espn` endpoint, then refreshes the game list
+- Inline sync result feedback ("Synced: N new, N updated")
+- Game list and "Add N games" submit button appear below once games are available
+
+**Tests updated/added:**
+- `lib/__tests__/espn.test.ts`: updated `fetchESPNSchedule` tests to assert `dates=YYYYMMDD` param
+- `app/api/admin/sync-schedule/__tests__/route.test.ts`: updated all `season` → `date` in bodies; added YYYYMMDD format validation test; updated season-derivation assertion
+- `app/api/sport-games/__tests__/route.test.ts`: added test for `?date=YYYYMMDD` filter (asserts correct `gte`/`lt` range passed to Prisma)
+- `app/api/leagues/[leagueId]/slates/[slateId]/sync-espn/__tests__/route.test.ts` *(new)*: 11 tests covering 401/403 auth, missing/invalid date, ESPN 502, all-insert, season-derivation, idempotency, empty ESPN response
+
+Test count: 221 → 233 (all passing).
+
+## 2026-04-09 (Phase 5 Task 2: schedule import — POST /api/admin/sync-schedule + /admin UI)
+
+**`app/api/admin/sync-schedule/route.ts`** *(new)*: `POST` handler for importing ESPN schedule data into the `SportGame` table.
+
+- **Auth**: `isAppAdmin()` reads `APP_ADMIN_EMAILS` env var (comma-separated), compares case-insensitively to `session.user.email`. Returns `401` if unauthenticated, `403` if not in the allow-list or if the env var is absent/empty.
+- **Validation**: `400` if `sport` is missing, not a valid sport key, or if `season` is missing/blank.
+- **ESPN fetch**: calls `fetchESPNSchedule(sport, season)` from `lib/espn.ts`; returns `502` with the ESPN error message if the fetch throws.
+- **Upsert**: queries existing `SportGame` rows by `espnId` to split ESPN results into inserts vs updates. New rows go to `createMany`; existing rows go to individual `update` calls (updating `homeTeam`, `awayTeam`, `scheduledAt` only — sport and season are not overwritten on update). Returns `{ inserted: N, updated: N }`. Short-circuits to `{ inserted: 0, updated: 0 }` if ESPN returns an empty list, skipping all DB calls.
+
+**`app/admin/page.tsx`** *(new)*: App-level admin page at `/admin`.
+- Season text input (defaults to current year).
+- One row per sport with individual Sync button; "Sync all sports" button to trigger all at once.
+- Per-sport inline feedback: syncing spinner text, green "✓ N inserted, N updated" on success, red error message on failure.
+- Redirects to `/login` if unauthenticated.
+
+**`app/api/admin/sync-schedule/__tests__/route.test.ts`** *(new)*: 20 tests. Mocks `@/lib/session`, `@/lib/db`, and `@/lib/espn`. Uses `process.env.APP_ADMIN_EMAILS` set in `beforeEach` and deleted in `afterEach`. Covers: auth (401, 403, empty env, whitespace-only env, null email, case-insensitive match, multi-email list), validation (missing sport, invalid sport, missing season, blank season, all six valid sports), ESPN errors (502 on throw, non-Error throw), and upsert logic (all-insert, mixed insert+update, all-update idempotency, empty ESPN response, correct field values to `createMany` and `update`).
+
+Test count: 201 → 221 (all passing).
+
+## 2026-04-09 (Phase 5 Task 1: ESPN game ID fields — schema migration)
+
+**`prisma/schema.prisma`**: Added two nullable fields:
+- `SportGame.espnId String? @unique` — ESPN's stable event ID stored at schedule-import time; unique constraint prevents duplicate imports of the same ESPN event
+- `Game.espnGameId String?` — copied from `SportGame.espnId` when an admin adds games to a slate; used by the score-sync cron to match ESPN results back to `Game` rows; games added manually (not from SportGame) have `null` and are skipped by the cron
+
+**`prisma/migrations/20260409000000_add_espn_ids/migration.sql`** *(new)*: `ALTER TABLE "SportGame" ADD COLUMN "espnId" TEXT` + `ALTER TABLE "Game" ADD COLUMN "espnGameId" TEXT` + `CREATE UNIQUE INDEX "SportGame_espnId_key"`. Applied to the Neon dev database via `prisma migrate deploy`.
+
+**`app/api/leagues/[leagueId]/slates/[slateId]/games/route.ts`**: `createMany` now includes `espnGameId: sg.espnId ?? null` — the ESPN ID flows from `SportGame` into `Game` at slate-population time with no visible API change.
+
+**`app/api/leagues/[leagueId]/slates/[slateId]/games/__tests__/route.test.ts`**: Added `espnId` to `fakeSportGames` (one with a value, one `null`) and `espnGameId` to `fakeCreatedGames`. Added two new tests: one asserting `createMany` is called with `espnGameId` matching the source `espnId`, one asserting `espnGameId: null` when the source has no `espnId`.
+
+Test count: 199 → 201 (all passing).
+
 ## 2026-04-09 (Phase 5 Task 0: ESPN client module — lib/espn.ts)
 
 **`lib/espn.ts`** *(new)*: ESPN API client — the single boundary between the app and ESPN's public scoreboard API. No other file should fetch from ESPN directly.

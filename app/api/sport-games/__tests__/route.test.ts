@@ -96,6 +96,27 @@ describe("GET /api/sport-games", () => {
     expect(body).toHaveLength(1);
   });
 
+  it("filters by date when provided (builds correct gte/lt range)", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
+    mockSportGameFindMany.mockResolvedValue([fakeSportGames[0]]);
+
+    const response = await GET(
+      new Request("http://localhost/api/sport-games?sport=NFL&date=20260906"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockSportGameFindMany).toHaveBeenCalledWith({
+      where: {
+        sport: "NFL",
+        scheduledAt: {
+          gte: new Date("2026-09-06T00:00:00.000Z"),
+          lt: new Date("2026-09-07T12:00:00.000Z"), // 36-hour window
+        },
+      },
+      orderBy: { scheduledAt: "asc" },
+    });
+  });
+
   it("returns empty array when no games match", async () => {
     mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "a@b.com" } });
     mockSportGameFindMany.mockResolvedValue([]);

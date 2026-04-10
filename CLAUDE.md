@@ -63,15 +63,18 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 | `POST /api/leagues/[leagueId]/slates` | admin | Create a slate (`name`, `position`) |
 | `POST /api/leagues/[leagueId]/slates/[slateId]/games` | admin | Populate slate with games from SportGame schedule (`sportGameIds[]`); enforces sport match |
 | `GET /api/leagues/[leagueId]/leaderboard` | member | Ranked members by correct picks; optional `?slateId=` to scope to a single slate |
-| `GET /api/sport-games` | required | Master schedule games; requires `?sport=`; optional `?season=` |
+| `GET /api/sport-games` | required | Master schedule games; requires `?sport=`; optional `?season=` or `?date=YYYYMMDD` (24-hour UTC window) |
+| `POST /api/leagues/[leagueId]/slates/[slateId]/sync-espn` | league admin | Sync ESPN games for a date into SportGame; accepts `{ date: "YYYYMMDD" }`; reads league sport; returns `{ inserted, updated }` |
+| `POST /api/admin/sync-schedule` | session + `APP_ADMIN_EMAILS` | App-level bulk ESPN sync; accepts `{ sport, date: "YYYYMMDD" }`; returns `{ inserted, updated }` |
+| `POST /api/cron/sync-scores` | `x-cron-secret` header | Cron: discover active-slate sports, poll ESPN, write scores, trigger slate promotion |
 
 ### Data model (core)
 - **User** — email-based identity
 - **League** — group with a unique invite code (CUID); `sport` field (NFL/NBA/MLB/NHL/NCAAF/NCAAB)
 - **LeagueMember** — join table with `role: admin | member`
-- **SportGame** — app-managed master schedule per sport (`homeTeam`, `awayTeam`, `scheduledAt`, `season`); seeded via `prisma/seed.ts`
+- **SportGame** — app-managed master schedule per sport (`homeTeam`, `awayTeam`, `scheduledAt`, `season`, `espnId`); seeded via `prisma/seed.ts` or synced via `/api/admin/sync-schedule`
 - **Slate** — named round within a league (`name`, `position`, `status: upcoming|active|completed`); only one active at a time; first slate auto-activates, subsequent slates activate when previous is fully scored
-- **Game** — matchup within a slate (`slateId` FK, `startTime`, `status`, nullable scores); created from `SportGame` rows by league admins
+- **Game** — matchup within a slate (`slateId` FK, `startTime`, `status`, nullable scores, `espnGameId`); created from `SportGame` rows by league admins; `espnGameId` is used by the score-sync cron to match ESPN results
 - **Pick** — `(userId, gameId)` unique; records `pickedTeam`; locked 30 min before earliest game startTime in the slate (falls back to `game.startTime` for games with no slate)
 
 NextAuth adapter models (`Account`, `Session`, `VerificationToken`) are managed automatically.
@@ -87,6 +90,8 @@ EMAIL_SERVER_PORT    # 465
 EMAIL_SERVER_USER    # resend
 EMAIL_SERVER_PASSWORD
 EMAIL_FROM
+APP_ADMIN_EMAILS     # Comma-separated emails allowed to call /api/admin/sync-schedule
+CRON_SECRET          # Shared secret for authenticating /api/cron/sync-scores (x-cron-secret header)
 ```
 
 ### Prisma notes
@@ -97,7 +102,12 @@ EMAIL_FROM
 - Seed command configured in `prisma.config.ts` (`migrations.seed`); uses `tsx` to run TypeScript directly
 - `lib/sports.ts` is the single source of truth for the allowed sports list — import `SPORTS` from there in both API routes and UI
 
+### Key libraries
+- `lib/espn.ts` — ESPN API client; the only place ESPN HTTP calls are made; exports `fetchESPNSchedule` and `fetchESPNScoreboard`; mock this module in tests with `vi.mock('@/lib/espn')`
+
 ### Phase status
 - **Phase 1 (MVP):** Complete — auth, leagues, games, picks, leaderboard
 - **Phase 2 (Slates & Sports):** Complete — sport field, master schedule, slates, sequential release, per-slate leaderboard
-- **Phase 3 (League Management):** In progress — Task 1 (UI gaps) and Task 2 (League Settings) complete; see `docs/phase-3.md`
+- **Phase 3 (League Management):** Complete — tiebreakers, user profiles, league settings, member management
+- **Phase 4 (UI Polish):** Complete — dark design system, nav, skeletons, empty states, team logos, color themes, homepage hero, pixel art podium
+- **Phase 5 (Sports Data Integration):** Not started — see `docs/phase-5.md`

@@ -158,14 +158,15 @@ async function fetchAndParse(url: string): Promise<ESPNGame[]> {
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches upcoming/historical games for a sport and season from ESPN.
- * Intended for the schedule-import admin route (Task 2).
+ * Fetches games for a sport on a specific calendar date from ESPN.
+ * date must be in YYYYMMDD format (e.g. "20260914").
+ * Intended for the schedule-import admin route and the per-slate sync endpoint.
  */
 export async function fetchESPNSchedule(
   sport: Sport,
-  season: string,
+  date: string,
 ): Promise<ESPNGame[]> {
-  const url = scoreboardUrl(sport, { limit: "100", season });
+  const url = scoreboardUrl(sport, { limit: "100", dates: date });
   return fetchAndParse(url);
 }
 

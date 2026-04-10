@@ -141,6 +141,7 @@ export async function POST(
       awayTeam: sg.awayTeam,
       startTime: sg.scheduledAt,
       status: "scheduled",
+      espnGameId: sg.espnId ?? null,
     })),
   });
 
