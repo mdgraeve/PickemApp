@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { fetchESPNSchedule } from "@/lib/espn";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { Sport } from "@/lib/sports";
 
 export async function POST(
@@ -14,6 +15,14 @@ export async function POST(
   }
 
   const { leagueId, slateId } = await params;
+
+  const rl = checkRateLimit(`sync-espn:${session.user.id}`, 10, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
 
   // --- League admin check ---
   const member = await prisma.leagueMember.findUnique({

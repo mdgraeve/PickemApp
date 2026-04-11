@@ -4,6 +4,10 @@ vi.mock("@/lib/session", () => ({
   getSession: vi.fn(),
 }));
 
+vi.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: vi.fn(() => ({ ok: true, retryAfterMs: 0 })),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     leagueMember: { findUnique: vi.fn() },

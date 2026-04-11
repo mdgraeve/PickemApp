@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
@@ -13,6 +14,14 @@ export async function POST(
 
   const { leagueId, gameId } = await params;
   const userId = session.user.id;
+
+  const rl = checkRateLimit(`picks:${userId}`, 30, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
 
   const membership = await prisma.leagueMember.findUnique({
     where: { userId_leagueId: { userId, leagueId } },

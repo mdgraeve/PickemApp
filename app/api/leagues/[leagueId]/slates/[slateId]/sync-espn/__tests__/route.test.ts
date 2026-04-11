@@ -22,6 +22,10 @@ vi.mock("@/lib/espn", () => ({
   fetchESPNSchedule: vi.fn(),
 }));
 
+vi.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: vi.fn(() => ({ ok: true, retryAfterMs: 0 })),
+}));
+
 import { POST } from "../route";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";

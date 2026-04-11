@@ -55,7 +55,7 @@ const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports";
 // ---------------------------------------------------------------------------
 
 type RawCompetitor = {
-  homeAway: "home" | "away";
+  homeAway: string; // "home" | "away" at runtime; string here so JSON fixture imports satisfy the type
   team: { displayName: string };
   score?: string;
 };
