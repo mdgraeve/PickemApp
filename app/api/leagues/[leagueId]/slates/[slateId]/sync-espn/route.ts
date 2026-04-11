@@ -13,7 +13,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { leagueId } = await params;
+  const { leagueId, slateId } = await params;
 
   // --- League admin check ---
   const member = await prisma.leagueMember.findUnique({
@@ -123,6 +123,34 @@ export async function POST(
     where: { espnId: { in: espnIds } },
     orderBy: { scheduledAt: "asc" },
   });
+
+  // --- Backfill espnGameId on existing Game rows in this slate that lack it ---
+  // Covers games that were added before ESPN IDs were wired through.
+  // Matching by homeTeam + awayTeam is safe within a single slate.
+  // Picks are untouched — only the espnGameId column is updated.
+  const espnIdByTeams = new Map(
+    syncedGames.map((sg) => [`${sg.homeTeam}|${sg.awayTeam}`, sg.espnId]),
+  );
+
+  const unlinkedGames = await prisma.game.findMany({
+    where: { slateId, espnGameId: null },
+    select: { id: true, homeTeam: true, awayTeam: true },
+  });
+
+  const toLink = unlinkedGames.filter((g) =>
+    espnIdByTeams.has(`${g.homeTeam}|${g.awayTeam}`),
+  );
+
+  if (toLink.length > 0) {
+    await Promise.all(
+      toLink.map((g) =>
+        prisma.game.update({
+          where: { id: g.id },
+          data: { espnGameId: espnIdByTeams.get(`${g.homeTeam}|${g.awayTeam}`) },
+        }),
+      ),
+    );
+  }
 
   return NextResponse.json({ inserted: toInsert.length, updated: toUpdate.length, games: syncedGames });
 }

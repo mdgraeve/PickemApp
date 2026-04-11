@@ -158,7 +158,7 @@ ESPN's scoreboard endpoint uses `?dates=YYYYMMDD` (not `?season=YYYY`) — the s
 
 ### 3. Score auto-sync
 
-**Status: Not started**
+**Status: Complete**
 
 A cron job that polls ESPN for in-progress and completed games, writes scores to matching `Game` rows, and triggers the existing slate-promotion logic automatically.
 
@@ -201,7 +201,11 @@ The cron endpoint must be safe to call multiple times concurrently or in rapid s
 |---|---|---|
 | `POST /api/cron/sync-scores` | `x-cron-secret` header | Discovers active sports, polls ESPN, updates Game rows, triggers slate promotion; always returns `200` with a summary |
 
-**Files changed:** `app/api/cron/sync-scores/route.ts` (new), `vercel.json` (new or updated)
+**Files changed:**
+- `app/api/cron/sync-scores/route.ts` *(new)* — cron endpoint
+- `app/api/cron/sync-scores/__tests__/route.test.ts` *(new)* — 16 tests
+- `vercel.json` *(new)* — `*/5 * * * *` cron schedule pointing at `/api/cron/sync-scores`
+
 **Schema changes:** None beyond Task 1.
 **API changes:** New route only.
 
@@ -303,6 +307,6 @@ Check the response body for the sync summary. Verify updated `Game` rows in Pris
 | ESPN game ID on SportGame | **Yes** | `espnId String? @unique` — Task 1 complete |
 | ESPN game ID on Game | **Yes** | `espnGameId String?` — Task 1 complete |
 | Schedule import from ESPN | **Yes** | `POST /api/leagues/[leagueId]/slates/[slateId]/sync-espn` (league admin) + `POST /api/admin/sync-schedule` (app admin) — Task 2 complete |
-| Score auto-sync | No | Manual admin score entry only |
-| Cron infrastructure | No | No background jobs |
-| App-level admin gating | No | `APP_ADMIN_EMAILS` env var not wired up yet |
+| Score auto-sync | **Yes** | `POST /api/cron/sync-scores` — Task 3 complete |
+| Cron infrastructure | **Yes** | `vercel.json` configures every-5-min cron |
+| App-level admin gating | **Yes** | `APP_ADMIN_EMAILS` env var wired up in `/api/admin/sync-schedule` |

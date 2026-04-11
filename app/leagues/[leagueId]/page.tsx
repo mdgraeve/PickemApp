@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -91,10 +91,10 @@ function isPastDeadline(deadline: string | null): boolean {
   return new Date(deadline) <= new Date();
 }
 
-function getWinner(game: Game): string | null {
-  if (game.homeScore === null || game.awayScore === null) return null;
-  if (game.homeScore > game.awayScore) return game.homeTeam;
-  if (game.awayScore > game.homeScore) return game.awayTeam;
+function getWinner(homeTeam: string, awayTeam: string, homeScore: number | null, awayScore: number | null): string | null {
+  if (homeScore === null || awayScore === null) return null;
+  if (homeScore > awayScore) return homeTeam;
+  if (awayScore > homeScore) return awayTeam;
   return null;
 }
 
@@ -209,26 +209,55 @@ export default function LeaguePage() {
   }, [viewIndex, allSlates, leagueId]);
 
   // ---------------------------------------------------------------------------
-  // Live score polling (active slate only, every 45s)
+  // Keep a ref to the current slateGames so the polling effect can read the
+  // latest value without including it in its dep array (which would restart
+  // the interval on every poll cycle).
+  // ---------------------------------------------------------------------------
+  const slateGamesRef = useRef<Game[]>([]);
+  useEffect(() => { slateGamesRef.current = slateGames; }, [slateGames]);
+
+  // ---------------------------------------------------------------------------
+  // Live score + completed score polling (active slate only, every 45s).
+  //
+  // Polls two endpoints in parallel:
+  //   • /games/live   → drives the LIVE badge (real-time ESPN data)
+  //   • /slates/:id/games → picks up scores written by the cron (FINAL badge)
+  //
+  // Dep array uses slateInfo?.id and slateInfo?.status (primitives) rather
+  // than the full slateInfo object so that calling setSlateInfo() inside the
+  // poll does not restart the interval on every tick.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (slateInfo?.status !== "active") return;
-    const hasLiveGames = slateGames.some((g) => g.espnGameId && g.status !== "completed");
-    if (!hasLiveGames) return;
+    const hasTrackableGames = slateGamesRef.current.some(
+      (g) => g.espnGameId && g.status !== "completed",
+    );
+    if (!hasTrackableGames) return;
 
-    async function fetchLiveScores() {
+    const slateId = slateInfo.id;
+
+    async function poll() {
       try {
-        const res = await fetch(`/api/leagues/${leagueId}/games/live`);
-        if (res.ok) setLiveScores(await res.json());
+        const [liveRes, gamesRes] = await Promise.all([
+          fetch(`/api/leagues/${leagueId}/games/live`),
+          fetch(`/api/leagues/${leagueId}/slates/${slateId}/games`),
+        ]);
+        if (liveRes.ok) setLiveScores(await liveRes.json());
+        if (gamesRes.ok) {
+          const data = await gamesRes.json();
+          setSlateInfo(data.slate);
+          setSlateGames(data.games);
+        }
       } catch {
         // Silent fail — retain last known state
       }
     }
 
-    void fetchLiveScores();
-    const id = setInterval(fetchLiveScores, 45_000);
+    void poll();
+    const id = setInterval(poll, 45_000);
     return () => clearInterval(id);
-  }, [slateGames, slateInfo, leagueId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slateInfo?.id, slateInfo?.status, leagueId]);
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -302,7 +331,9 @@ export default function LeaguePage() {
     );
   }
 
-  const locked = isPastDeadline(slateInfo?.lockDeadline ?? null);
+  const locked =
+    process.env.NEXT_PUBLIC_DISABLE_PICK_LOCK !== "true" &&
+    isPastDeadline(slateInfo?.lockDeadline ?? null);
   const isNoUpcomingView = viewIndex !== null && viewIndex >= allSlates.length;
   const currentSlateItem = viewIndex !== null && viewIndex < allSlates.length
     ? allSlates[viewIndex]
@@ -407,11 +438,18 @@ export default function LeaguePage() {
               ) : (
                 <ul className="space-y-3">
                   {slateGames.map((game) => {
-                    const winner = getWinner(game);
-                    const isCompleted = game.status === "completed";
                     const isSubmitting = pickSubmitting === game.id;
                     const liveScore = liveScores[game.id];
                     const isLive = liveScore?.status === "in_progress";
+                    const isEspnFinal = liveScore?.status === "completed";
+
+                    // Prefer DB values (written by cron) but fall back to ESPN live data
+                    // so scores appear immediately when ESPN reports the game complete,
+                    // without waiting for the cron to write to the database.
+                    const isCompleted = game.status === "completed" || isEspnFinal;
+                    const effectiveHomeScore = game.homeScore ?? (isEspnFinal ? liveScore.homeScore : null);
+                    const effectiveAwayScore = game.awayScore ?? (isEspnFinal ? liveScore.awayScore : null);
+                    const winner = getWinner(game.homeTeam, game.awayTeam, effectiveHomeScore, effectiveAwayScore);
 
                     return (
                       <li
@@ -420,10 +458,14 @@ export default function LeaguePage() {
                       >
                         <div className="flex items-center justify-between text-xs text-slate-400">
                           <span>{formatGameTime(game.startTime)}</span>
-                          {isCompleted && (
+                          {isCompleted && effectiveAwayScore !== null && effectiveHomeScore !== null ? (
+                            <span className="font-medium text-slate-300">
+                              <span className="uppercase tracking-wide text-slate-500 mr-1.5">Final</span>
+                              {effectiveAwayScore}–{effectiveHomeScore}
+                            </span>
+                          ) : isCompleted ? (
                             <span className="font-medium uppercase tracking-wide">Final</span>
-                          )}
-                          {isLive && (
+                          ) : isLive ? (
                             <span className="flex items-center gap-1.5 font-medium text-red-400">
                               <span className="relative flex h-2 w-2">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
@@ -439,7 +481,7 @@ export default function LeaguePage() {
                                 </span>
                               )}
                             </span>
-                          )}
+                          ) : null}
                         </div>
 
                         <div className="flex gap-3">
@@ -449,6 +491,7 @@ export default function LeaguePage() {
                             const isLoser = isCompleted && winner !== null && winner !== team;
                             const isCorrect = isCompleted && isPicked && isWinner;
                             const isWrong = isCompleted && isPicked && !isWinner;
+                            const teamScore = team === game.homeTeam ? effectiveHomeScore : effectiveAwayScore;
                             const logoUrl = league?.sport
                               ? getTeamLogoUrl(league.sport, team)
                               : null;
@@ -492,9 +535,9 @@ export default function LeaguePage() {
                                   )}
                                   <span>
                                     {team}
-                                    {isCompleted && game.homeScore !== null && game.awayScore !== null && (
+                                    {isCompleted && teamScore !== null && (
                                       <span className="ml-1.5 text-xs font-normal opacity-75">
-                                        ({team === game.homeTeam ? game.homeScore : game.awayScore})
+                                        ({teamScore})
                                       </span>
                                     )}
                                   </span>

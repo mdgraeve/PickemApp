@@ -112,4 +112,4 @@ CRON_SECRET          # Shared secret for authenticating /api/cron/sync-scores (x
 - **Phase 2 (Slates & Sports):** Complete — sport field, master schedule, slates, sequential release, per-slate leaderboard
 - **Phase 3 (League Management):** Complete — tiebreakers, user profiles, league settings, member management
 - **Phase 4 (UI Polish):** Complete — dark design system, nav, skeletons, empty states, team logos, color themes, homepage hero, pixel art podium
-- **Phase 5 (Sports Data Integration):** Not started — see `docs/phase-5.md`
+- **Phase 5 (Sports Data Integration):** Complete — ESPN client, ESPN ID fields, schedule import (league admin + app admin), score auto-sync cron

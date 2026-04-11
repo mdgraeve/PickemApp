@@ -76,7 +76,7 @@ export async function GET(
   const result: Record<string, LiveScoreEntry> = {};
   for (const game of games) {
     const espnGame = espnMap.get(game.espnGameId!);
-    if (espnGame && espnGame.status === "in_progress") {
+    if (espnGame && espnGame.status !== "scheduled") {
       result[game.id] = {
         homeScore: espnGame.homeScore,
         awayScore: espnGame.awayScore,

@@ -70,7 +70,7 @@ export async function POST(
     lockDeadline = game.startTime;
   }
 
-  if (lockDeadline <= new Date()) {
+  if (process.env.NEXT_PUBLIC_DISABLE_PICK_LOCK !== "true" && lockDeadline <= new Date()) {
     return NextResponse.json(
       { error: "Pick deadline has passed" },
       { status: 400 },

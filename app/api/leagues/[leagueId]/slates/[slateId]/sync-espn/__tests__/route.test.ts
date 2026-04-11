@@ -11,6 +11,10 @@ vi.mock("@/lib/db", () => ({
       createMany: vi.fn(),
       update: vi.fn(),
     },
+    game: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -28,7 +32,9 @@ const mockFindMember = prisma.leagueMember.findUnique as ReturnType<typeof vi.fn
 const mockFindLeague = prisma.league.findUnique as ReturnType<typeof vi.fn>;
 const mockSportGameFindMany = prisma.sportGame.findMany as ReturnType<typeof vi.fn>;
 const mockCreateMany = prisma.sportGame.createMany as ReturnType<typeof vi.fn>;
-const mockUpdate = prisma.sportGame.update as ReturnType<typeof vi.fn>;
+const mockSportGameUpdate = prisma.sportGame.update as ReturnType<typeof vi.fn>;
+const mockGameFindMany = prisma.game.findMany as ReturnType<typeof vi.fn>;
+const mockGameUpdate = prisma.game.update as ReturnType<typeof vi.fn>;
 const mockFetchESPNSchedule = fetchESPNSchedule as ReturnType<typeof vi.fn>;
 
 const LEAGUE_ID = "league-1";
@@ -100,6 +106,8 @@ function makeParams() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // Default: no unlinked games in the slate (backfill is a no-op)
+  mockGameFindMany.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -209,7 +217,7 @@ describe("POST sync-espn — upsert logic", () => {
     expect(body.games).toHaveLength(2);
     expect(body.games[0].espnId).toBe("espn-401547417");
     expect(mockCreateMany).toHaveBeenCalledOnce();
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockSportGameUpdate).not.toHaveBeenCalled();
   });
 
   it("derives season from the year portion of the date", async () => {
@@ -243,7 +251,7 @@ describe("POST sync-espn — upsert logic", () => {
     mockSportGameFindMany
       .mockResolvedValueOnce([{ espnId: "espn-401547417" }, { espnId: "espn-401547418" }])
       .mockResolvedValueOnce(fakeSyncedSportGames);
-    mockUpdate.mockResolvedValue({});
+    mockSportGameUpdate.mockResolvedValue({});
 
     const res = await POST(makeRequest({ date: "20260907" }), makeParams());
     const body = await res.json();
@@ -253,7 +261,7 @@ describe("POST sync-espn — upsert logic", () => {
     expect(body.updated).toBe(2);
     expect(body.games).toHaveLength(2);
     expect(mockCreateMany).not.toHaveBeenCalled();
-    expect(mockUpdate).toHaveBeenCalledTimes(2);
+    expect(mockSportGameUpdate).toHaveBeenCalledTimes(2);
   });
 
   it("returns 0/0 with empty games array and skips DB calls when ESPN returns no games", async () => {
@@ -269,6 +277,73 @@ describe("POST sync-espn — upsert logic", () => {
     expect(body).toEqual({ inserted: 0, updated: 0, games: [] });
     expect(mockSportGameFindMany).not.toHaveBeenCalled();
     expect(mockCreateMany).not.toHaveBeenCalled();
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockSportGameUpdate).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// espnGameId backfill
+// ---------------------------------------------------------------------------
+
+describe("POST sync-espn — espnGameId backfill", () => {
+  function happyPathSetup() {
+    mockGetSession.mockResolvedValue(authedSession);
+    mockFindMember.mockResolvedValue(adminMember);
+    mockFindLeague.mockResolvedValue(nflLeague);
+    mockFetchESPNSchedule.mockResolvedValue(fakeESPNGames);
+    mockSportGameFindMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(fakeSyncedSportGames);
+    mockCreateMany.mockResolvedValue({ count: 2 });
+  }
+
+  it("writes espnGameId onto existing Game rows that have none", async () => {
+    happyPathSetup();
+    mockGameFindMany.mockResolvedValue([
+      { id: "game-1", homeTeam: "Kansas City Chiefs", awayTeam: "Baltimore Ravens" },
+    ]);
+    mockGameUpdate.mockResolvedValue({});
+
+    await POST(makeRequest({ date: "20260907" }), makeParams());
+
+    expect(mockGameUpdate).toHaveBeenCalledWith({
+      where: { id: "game-1" },
+      data: { espnGameId: "espn-401547417" },
+    });
+  });
+
+  it("backfills all matching unlinked games in one sync call", async () => {
+    happyPathSetup();
+    mockGameFindMany.mockResolvedValue([
+      { id: "game-1", homeTeam: "Kansas City Chiefs", awayTeam: "Baltimore Ravens" },
+      { id: "game-2", homeTeam: "Dallas Cowboys", awayTeam: "New York Giants" },
+    ]);
+    mockGameUpdate.mockResolvedValue({});
+
+    await POST(makeRequest({ date: "20260907" }), makeParams());
+
+    expect(mockGameUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips Game rows whose team names don't match any ESPN game", async () => {
+    happyPathSetup();
+    mockGameFindMany.mockResolvedValue([
+      { id: "game-99", homeTeam: "Unknown Team A", awayTeam: "Unknown Team B" },
+    ]);
+
+    await POST(makeRequest({ date: "20260907" }), makeParams());
+
+    expect(mockGameUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not query Game table when ESPN returns no games", async () => {
+    mockGetSession.mockResolvedValue(authedSession);
+    mockFindMember.mockResolvedValue(adminMember);
+    mockFindLeague.mockResolvedValue(nflLeague);
+    mockFetchESPNSchedule.mockResolvedValue([]);
+
+    await POST(makeRequest({ date: "20260907" }), makeParams());
+
+    expect(mockGameFindMany).not.toHaveBeenCalled();
   });
 });

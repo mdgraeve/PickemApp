@@ -1,5 +1,70 @@
 # Changelog
 
+## 2026-04-10 (Phase 5: completed game score + pick result display)
+
+**Why:** Completed games showed no score and no pick result (correct/wrong) because the live endpoint only returned in-progress games, and the cron hadn't yet written scores to the DB. Users had no feedback on their picks until a manual page refresh after the cron ran.
+
+**`app/api/leagues/[leagueId]/games/live/route.ts`**: Changed the ESPN game filter from `status === "in_progress"` to `status !== "scheduled"`. Completed ESPN games are now included in the live response with their final scores. Scheduled games (not yet started) are still excluded.
+
+**`app/leagues/[leagueId]/page.tsx`**: Updated game card rendering to handle scores from either source (DB or ESPN live data):
+- `isEspnFinal` — true when the live poll returns `status: "completed"` for a game
+- `isCompleted` — now true if DB status is completed OR ESPN reports it complete
+- `effectiveHomeScore` / `effectiveAwayScore` — prefer DB values (written by cron), fall back to ESPN live scores
+- `winner` — recalculated using effective scores
+- Header: completed games now show `Final 2–5` (away–home) instead of just "Final"
+- Buttons: correct pick highlighted green, wrong pick red, loser team dimmed; score shown in parentheses per team
+- Updated `getWinner` signature to take scores directly rather than a Game object
+
+**`app/api/leagues/[leagueId]/games/live/__tests__/route.test.ts`**: Updated "omits completed" test → "includes completed with final score"; added "omits scheduled" test.
+
+Test count: 275 → 276 (all passing).
+
+---
+
+## 2026-04-10 (Phase 5: espnGameId backfill on ESPN sync)
+
+**Why:** Games added to a slate before the ESPN ID flow was wired through had `espnGameId = null`, preventing live score polling and cron-based score sync from matching them. Deleting and re-adding games would wipe user picks.
+
+**`app/api/leagues/[leagueId]/slates/[slateId]/sync-espn/route.ts`**: After upserting `SportGame` rows, now also queries the current slate for `Game` rows where `espnGameId` is null. For each such game, looks up a matching row in the just-synced `SportGame` set by `homeTeam + awayTeam` and writes the `espnId` back onto the `Game` row. Picks are untouched — only the `espnGameId` column is updated. Re-syncing from ESPN now also heals pre-existing game rows.
+
+**`app/api/leagues/[leagueId]/slates/[slateId]/sync-espn/__tests__/route.test.ts`**: Added `prisma.game` to the mock; added `beforeEach` default (no unlinked games); renamed `mockUpdate` → `mockSportGameUpdate` to avoid ambiguity; added 4 backfill tests (writes correct ID, backfills all matches, skips non-matching teams, skips Game query when ESPN returns nothing).
+
+Test count: 271 → 275 (all passing).
+
+---
+
+## 2026-04-10 (Phase 5: live score + completed score UI auto-refresh)
+
+**Why:** The picks page had no mechanism to pick up scores written by the cron job or transitions from in-progress to completed. Users had to manually refresh to see the FINAL badge and scores after a game ended.
+
+**`app/leagues/[leagueId]/page.tsx`**: Rewrote the live-polling `useEffect`.
+- Added `slateGamesRef` (a `useRef` that mirrors `slateGames`) so the polling function can read the current game list without putting `slateGames` in the effect's dep array (which would restart the interval on every poll cycle and cause an infinite loop).
+- The poll now fetches both `/games/live` and `/slates/:id/games` in parallel. Live scores drive the LIVE badge (real-time ESPN data); the games re-fetch picks up `status: "completed"` and final scores written by the cron (drives the FINAL badge and score display in the pick buttons).
+- Dep array changed from `[slateGames, slateInfo, leagueId]` to `[slateInfo?.id, slateInfo?.status, leagueId]` so the interval only restarts on a real slate change, not on data updates.
+- Polling stops automatically once the slate transitions to `"completed"` (all games done).
+
+---
+
+## 2026-04-10 (Phase 5 Task 3: score auto-sync cron)
+
+**Why:** Admins were manually entering game scores via the `PATCH /api/leagues/[leagueId]/games/[gameId]` endpoint. This was error-prone and slow. The score-sync cron automatically polls ESPN for completed games and writes scores back to matching `Game` rows, triggering the existing slate-promotion logic automatically.
+
+**`app/api/cron/sync-scores/route.ts`** *(new)*: `POST` handler authenticated via `x-cron-secret` header (checked against `CRON_SECRET` env var). Logic:
+1. Discovers distinct sports that currently have active slates via a `Slate` + `League` join query.
+2. Calls `fetchESPNScoreboard(sport)` once per distinct sport.
+3. For each completed ESPN game, finds matching `Game` rows by `espnGameId`. Skips games already marked `"completed"` (idempotency). Updates matching rows with `homeScore`, `awayScore`, `status: "completed"`.
+4. After each update, calls `tryPromoteNextSlate` to trigger slate promotion if all games in the slate are now complete.
+5. Always returns `200` with `{ synced, updated, sports }` summary — error statuses would cause Vercel to retry unnecessarily.
+6. ESPN errors for a single sport are swallowed (sport skipped, others continue).
+
+**`app/api/cron/sync-scores/__tests__/route.test.ts`** *(new)*: 16 tests covering auth (missing header, wrong secret, missing env var), no-active-slates short-circuit, completed/in-progress/scheduled game discrimination, games without `espnGameId` skipped, idempotency, slate promotion fires / doesn't fire, multi-sport deduplication, ESPN error resilience (one sport fails, others continue).
+
+**`vercel.json`** *(new)*: Configures Vercel Cron to call `POST /api/cron/sync-scores` every 5 minutes (`*/5 * * * *`).
+
+Test count: 255 → 271 (all passing).
+
+---
+
 ## 2026-04-10 (Phase 4: slate navigation on picks tab)
 
 **Why:** Users in leagues with multiple slates (e.g. one per day) could only see the active slate. Completed slates were buried in a separate "Past Slates" section and upcoming slates were invisible entirely, which made the question "when do I see the next slate?" unanswerable from the UI.

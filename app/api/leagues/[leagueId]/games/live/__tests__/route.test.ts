@@ -157,9 +157,37 @@ describe("GET /api/leagues/[leagueId]/games/live", () => {
     expect(Object.keys(body)).toEqual(["g-1"]);
   });
 
-  it("omits a game that ESPN reports as completed", async () => {
+  it("includes a game that ESPN reports as completed with its final score", async () => {
     mockGameFindMany.mockResolvedValue([{ id: "g-1", espnGameId: "espn-501" }]);
     mockFetchESPNScoreboard.mockResolvedValue([fakeEspnCompleted]);
+    const response = await GET(fakeRequest, fakeContext);
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body["g-1"]).toEqual({
+      homeScore: 5,
+      awayScore: 2,
+      clock: null,
+      period: null,
+      shortDetail: null,
+      status: "completed",
+    });
+  });
+
+  it("omits a game that ESPN reports as scheduled", async () => {
+    const fakeEspnScheduled = {
+      id: "espn-502",
+      homeTeam: "Boston Red Sox",
+      awayTeam: "Toronto Blue Jays",
+      scheduledAt: new Date("2026-04-10T23:05:00Z"),
+      status: "scheduled" as const,
+      homeScore: null,
+      awayScore: null,
+      clock: null,
+      period: null,
+      shortDetail: null,
+    };
+    mockGameFindMany.mockResolvedValue([{ id: "g-1", espnGameId: "espn-502" }]);
+    mockFetchESPNScoreboard.mockResolvedValue([fakeEspnScheduled]);
     const response = await GET(fakeRequest, fakeContext);
     const body = await response.json();
     expect(response.status).toBe(200);
