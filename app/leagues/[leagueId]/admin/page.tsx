@@ -63,11 +63,9 @@ export default function AdminPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  // Expanded slate: games + score entry
+  // Expanded slate: games (read-only — scores come from ESPN cron)
   const [expandedSlateId, setExpandedSlateId] = useState<string | null>(null);
   const [slateGames, setSlateGames] = useState<Record<string, Game[]>>({});
-  const [scores, setScores] = useState<Record<string, { home: string; away: string }>>({});
-  const [savingScore, setSavingScore] = useState<string | null>(null);
 
   // Tiebreaker state
   const [slateQuestions, setSlateQuestions] = useState<Record<string, TiebreakerQuestion[]>>({});
@@ -220,38 +218,6 @@ export default function AdminPage() {
       setCreateError("Something went wrong");
     } finally {
       setCreating(false);
-    }
-  }
-
-  async function handleSaveScore(gameId: string) {
-    const entry = scores[gameId];
-    if (!entry) return;
-    setSavingScore(gameId);
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/games/${gameId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          homeScore: parseInt(entry.home, 10),
-          awayScore: parseInt(entry.away, 10),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error ?? "Failed to save score");
-        return;
-      }
-      setSlateGames((prev) => {
-        const updated: Record<string, Game[]> = {};
-        for (const [sid, games] of Object.entries(prev)) {
-          updated[sid] = games.map((g) => (g.id === gameId ? { ...g, ...data } : g));
-        }
-        return updated;
-      });
-    } catch {
-      alert("Something went wrong");
-    } finally {
-      setSavingScore(null);
     }
   }
 
@@ -429,63 +395,28 @@ export default function AdminPage() {
                         ) : (
                           <ul className="space-y-4">
                             {games.map((game) => {
-                              const scoreEntry = scores[game.id] ?? {
-                                home: game.homeScore?.toString() ?? "",
-                                away: game.awayScore?.toString() ?? "",
-                              };
-                              const isSaving = savingScore === game.id;
                               const isCompleted = game.status === "completed";
+                              const isPending = !isCompleted;
 
                               return (
-                                <li key={game.id} className="space-y-2">
-                                  <div className="text-sm space-y-0.5">
-                                    <div>
-                                      <span className="font-medium text-white">{game.awayTeam}</span>
-                                      <span className="text-slate-500 mx-2">@</span>
-                                      <span className="font-medium text-white">{game.homeTeam}</span>
-                                      {isCompleted && (
-                                        <span className="ml-2 text-xs font-medium text-green-400">
-                                          Final: {game.awayScore}–{game.homeScore}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-slate-500">{formatDateTime(game.startTime)}</div>
+                                <li key={game.id} className="text-sm space-y-0.5">
+                                  <div>
+                                    <span className="font-medium text-white">{game.awayTeam}</span>
+                                    <span className="text-slate-500 mx-2">@</span>
+                                    <span className="font-medium text-white">{game.homeTeam}</span>
+                                    {isCompleted ? (
+                                      <span className="ml-2 text-xs font-medium text-green-400">
+                                        Final: {game.awayScore}–{game.homeScore}
+                                      </span>
+                                    ) : (
+                                      <span className="ml-2 text-xs text-slate-500">Pending</span>
+                                    )}
                                   </div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      placeholder="Away"
-                                      value={scoreEntry.away}
-                                      onChange={(e) =>
-                                        setScores((prev) => ({
-                                          ...prev,
-                                          [game.id]: { ...scoreEntry, away: e.target.value },
-                                        }))
-                                      }
-                                      className="w-20 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                    />
-                                    <span className="text-slate-500 text-sm">–</span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      placeholder="Home"
-                                      value={scoreEntry.home}
-                                      onChange={(e) =>
-                                        setScores((prev) => ({
-                                          ...prev,
-                                          [game.id]: { ...scoreEntry, home: e.target.value },
-                                        }))
-                                      }
-                                      className="w-20 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                    />
-                                    <button
-                                      disabled={isSaving || !scoreEntry.home || !scoreEntry.away}
-                                      onClick={() => handleSaveScore(game.id)}
-                                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800 disabled:opacity-40"
-                                    >
-                                      {isSaving ? "Saving..." : isCompleted ? "Update" : "Save"}
-                                    </button>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-500">{formatDateTime(game.startTime)}</span>
+                                    {isPending && (
+                                      <span className="text-xs text-slate-600">· Score syncs automatically via ESPN</span>
+                                    )}
                                   </div>
                                 </li>
                               );

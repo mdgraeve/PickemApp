@@ -77,6 +77,9 @@ model League {
   sport       String?
   inviteCode  String   @unique @default(cuid())
   createdById String
+  description String?
+  maxMembers  Int?
+  isPrivate   Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

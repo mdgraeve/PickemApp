@@ -124,8 +124,10 @@ export default function ProfilePage() {
       {totalPicks > 0 && (
         <div className="grid grid-cols-3 gap-4">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-center">
-            <p className="text-3xl font-bold text-white">{totalCorrect}</p>
-            <p className="mt-1 text-xs text-slate-400">Correct picks</p>
+            <p className="text-3xl font-bold text-white tabular-nums">
+              {totalCorrect}-{totalPicks - totalCorrect}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">Record (W-L)</p>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-center">
             <p className="text-3xl font-bold text-white">{totalPicks}</p>
@@ -150,9 +152,9 @@ export default function ProfilePage() {
                 <tr className="border-b border-slate-800 text-left text-slate-500">
                   <th className="px-5 py-3 font-medium">League</th>
                   <th className="px-5 py-3 font-medium hidden sm:table-cell">Sport</th>
-                  <th className="px-5 py-3 font-medium text-right">Correct</th>
-                  <th className="px-5 py-3 font-medium text-right">Total</th>
-                  <th className="px-5 py-3 font-medium text-right">Accuracy</th>
+                  <th className="px-5 py-3 font-medium text-right">Record</th>
+                  <th className="px-5 py-3 font-medium text-right hidden sm:table-cell">Total</th>
+                  <th className="px-5 py-3 font-medium text-right">Pct</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -169,8 +171,10 @@ export default function ProfilePage() {
                     <td className="px-5 py-3 text-slate-400 hidden sm:table-cell">
                       {row.sport ?? "—"}
                     </td>
-                    <td className="px-5 py-3 text-right text-white font-medium">{row.correctPicks}</td>
-                    <td className="px-5 py-3 text-right text-slate-400">{row.totalPicks}</td>
+                    <td className="px-5 py-3 text-right text-white font-medium tabular-nums">
+                      {row.correctPicks}-{row.totalPicks - row.correctPicks}
+                    </td>
+                    <td className="px-5 py-3 text-right text-slate-400 hidden sm:table-cell">{row.totalPicks}</td>
                     <td className="px-5 py-3 text-right text-slate-400">
                       {row.accuracy !== null ? `${row.accuracy}%` : "—"}
                     </td>

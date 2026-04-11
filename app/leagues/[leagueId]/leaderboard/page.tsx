@@ -132,14 +132,18 @@ export default function LeaderboardPage() {
               <tr className="border-b border-slate-800 text-left text-slate-500">
                 <th className="px-3 sm:px-5 py-3 font-medium">Rank</th>
                 <th className="px-3 sm:px-5 py-3 font-medium">Player</th>
-                <th className="px-3 sm:px-5 py-3 font-medium text-right">Correct</th>
-                <th className="hidden sm:table-cell px-5 py-3 font-medium text-right">Picked</th>
+                <th className="px-3 sm:px-5 py-3 font-medium text-right">Record</th>
+                <th className="hidden sm:table-cell px-5 py-3 font-medium text-right">Pct</th>
               </tr>
             </thead>
             <tbody>
               {entries.map((entry) => {
                 const isCurrentUser = session?.user?.id === entry.userId;
                 const medal = MEDALS[entry.rank - 1];
+                const losses = entry.totalPicks - entry.correct;
+                const pct = entry.totalPicks > 0
+                  ? Math.round((entry.correct / entry.totalPicks) * 1000) / 10
+                  : null;
 
                 return (
                   <tr
@@ -164,8 +168,12 @@ export default function LeaderboardPage() {
                         <span className="ml-2 text-xs text-slate-500">(you)</span>
                       )}
                     </td>
-                    <td className="px-3 sm:px-5 py-3 text-right font-semibold text-white">{entry.correct}</td>
-                    <td className="hidden sm:table-cell px-5 py-3 text-right text-slate-400">{entry.totalPicks}</td>
+                    <td className="px-3 sm:px-5 py-3 text-right font-semibold text-white tabular-nums">
+                      {entry.correct}-{losses}
+                    </td>
+                    <td className="hidden sm:table-cell px-5 py-3 text-right text-slate-400 tabular-nums">
+                      {pct !== null ? `${pct}%` : "—"}
+                    </td>
                   </tr>
                 );
               })}

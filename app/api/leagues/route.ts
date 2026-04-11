@@ -50,6 +50,30 @@ export async function POST(request: Request) {
     );
   }
 
+  const bodyRecord = body as Record<string, unknown>;
+
+  const description =
+    typeof bodyRecord.description === "string"
+      ? bodyRecord.description.trim().slice(0, 300) || null
+      : null;
+
+  const maxMembersRaw = bodyRecord.maxMembers;
+  let maxMembers: number | null = null;
+  if (maxMembersRaw !== null && maxMembersRaw !== undefined) {
+    const n = Number(maxMembersRaw);
+    if (Number.isInteger(n) && n >= 2 && n <= 500) {
+      maxMembers = n;
+    } else if (!Number.isNaN(n)) {
+      return NextResponse.json(
+        { error: "maxMembers must be an integer between 2 and 500" },
+        { status: 400 },
+      );
+    }
+  }
+
+  const isPrivate =
+    typeof bodyRecord.isPrivate === "boolean" ? bodyRecord.isPrivate : true;
+
   const userId = session.user.id;
 
   const league = await prisma.$transaction(async (tx) => {
@@ -57,6 +81,9 @@ export async function POST(request: Request) {
       data: {
         name,
         sport,
+        description,
+        maxMembers,
+        isPrivate,
         createdById: userId,
       },
     });

@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-04-11 (Create League dialog with description, member limit, and visibility)
+
+**Why:** The previous "Create League" flow navigated to a separate `/leagues/new` page with only two fields (name + sport). A modal dialog keeps users in context (no full-page navigation), and the expanded field set — description, member cap, and private/public toggle — gives league creators meaningful control before inviting anyone.
+
+**`prisma/schema.prisma`**: Added three optional columns to `League`: `description String?`, `maxMembers Int?`, `isPrivate Boolean @default(true)`. Migration applied: `20260411133614_add_league_description_maxmembers_isprivate`.
+
+**`app/api/leagues/route.ts`**: POST handler now reads and validates `description` (trimmed, max 300 chars), `maxMembers` (integer 2–500 or null for unlimited), and `isPrivate` (boolean, defaults to `true`). All three fields are written to the new DB columns.
+
+**`app/components/create-league-dialog.tsx`** *(new)*: Modal dialog component for league creation. Features: dark overlay with backdrop-blur, close on Escape or backdrop click, body scroll lock while open. Form fields: league name (text input), sport (3×2 emoji grid selector), description (textarea with 300-char counter), member limit (toggle + number input), visibility (Private/Public button pair). Submit button disabled until name and sport are both filled. Accepts `open`, `onClose`, and optional `onCreated` callback — if `onCreated` is provided the dialog stays in-page and calls back with the new league; otherwise it navigates to the league page.
+
+**`app/page.tsx`**: Both "Create League" triggers (header `+ New` button and empty-state button) now open the `<CreateLeagueDialog>` instead of linking to `/leagues/new`. A `useEffect` detects `?create=1` in the URL and auto-opens the dialog (used by the `/leagues/new` redirect). League list cards now show member count with optional cap (`4 / 10`) and a truncated description line below the name.
+
+**`app/leagues/new/page.tsx`**: Replaced the old form page with a one-liner redirect to `/?create=1` so any bookmarked or external links to `/leagues/new` still open the dialog.
+
+No API contract changes beyond the three new optional POST fields. All 276 tests still passing.
+
+---
+
+## 2026-04-10 (Eliminate admin score entry; W-L record display)
+
+**Why:** Scores are now auto-synced from ESPN via the cron job — there is no need for admins to manually enter them. Manual entry was also a source of error (wrong values could break pick scoring). Additionally, displaying a raw correct-pick count gives no sense of context; showing a W-L record (e.g. "12-5") is the sports-standard way to communicate a player's standing.
+
+**`app/leagues/[leagueId]/admin/page.tsx`**: Removed all manual score-entry UI — the score input fields, the Save/Update buttons, the `scores` state, and the `savingScore` state + `handleSaveScore` handler. Completed games now show a read-only "Final: A–H" badge. Pending games show a "· Score syncs automatically via ESPN" hint so admins understand why there are no inputs.
+
+**`app/leagues/[leagueId]/leaderboard/page.tsx`**: Replaced the "Correct" column with "Record" (W-L format, e.g. `12-5`). The "Picked" column is replaced with "Pct" (win percentage, e.g. `70.6%`, hidden on mobile). Both values use `tabular-nums` for aligned rendering.
+
+**`app/profile/[userId]/page.tsx`**: Updated the 3-stat hero grid — "Correct picks" card now shows the W-L record (e.g. `12-5`) with label "Record (W-L)". In the per-league stats table, the "Correct"/"Total" columns are replaced with "Record" (W-L) and "Pct" (win %); the "Total" column is still shown but hidden on mobile.
+
+No schema changes. No API changes. All 276 tests still passing.
+
+---
+
 ## 2026-04-10 (Phase 5: completed game score + pick result display)
 
 **Why:** Completed games showed no score and no pick result (correct/wrong) because the live endpoint only returned in-progress games, and the cron hadn't yet written scores to the DB. Users had no feedback on their picks until a manual page refresh after the cron ran.

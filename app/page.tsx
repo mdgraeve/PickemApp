@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { PageLoader, SkeletonCard } from "@/app/components/skeleton";
+import { CreateLeagueDialog } from "@/app/components/create-league-dialog";
 
 type League = {
   id: string;
@@ -12,6 +13,9 @@ type League = {
   inviteCode: string;
   memberCount: number;
   role: string;
+  description: string | null;
+  maxMembers: number | null;
+  isPrivate: boolean;
 };
 
 const SPORT_EMOJI: Record<string, string> = {
@@ -38,6 +42,7 @@ export default function Home() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -47,6 +52,19 @@ export default function Home() {
       .then((data: League[]) => setLeagues(data))
       .catch(() => {})
       .finally(() => setLoadingLeagues(false));
+  }, [status]);
+
+  // Auto-open dialog when redirected from /leagues/new
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("create") === "1") {
+      setShowCreate(true);
+      // Remove the query param without a full navigation
+      const url = new URL(window.location.href);
+      url.searchParams.delete("create");
+      window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    }
   }, [status]);
 
   async function handleJoin(e: React.FormEvent) {
@@ -155,6 +173,15 @@ export default function Home() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 space-y-8">
+      {/* Create League dialog */}
+      <CreateLeagueDialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={(league) => {
+          setLeagues((prev) => [league, ...prev]);
+        }}
+      />
+
       {/* Welcome banner */}
       <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 px-6 py-8">
         <div className="absolute right-5 top-1/2 -translate-y-1/2 text-8xl opacity-[0.07] pointer-events-none select-none">
@@ -178,12 +205,12 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-200">Your Leagues</h2>
           <div className="flex gap-2">
-            <Link
-              href="/leagues/new"
+            <button
+              onClick={() => setShowCreate(true)}
               className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500"
             >
               + New
-            </Link>
+            </button>
             <button
               onClick={() => setShowJoin((v) => !v)}
               className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
@@ -206,12 +233,12 @@ export default function Home() {
               Create a new league or join one with an invite code.
             </p>
             <div className="flex justify-center gap-3 pt-1">
-              <Link
-                href="/leagues/new"
+              <button
+                onClick={() => setShowCreate(true)}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
               >
                 Create League
-              </Link>
+              </button>
               <button
                 onClick={() => setShowJoin(true)}
                 className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
@@ -238,12 +265,18 @@ export default function Home() {
                     <p className="font-semibold text-white truncate">{league.name}</p>
                     <p className="text-sm text-slate-400">
                       {league.memberCount} member{league.memberCount !== 1 ? "s" : ""}
+                      {league.maxMembers ? ` / ${league.maxMembers}` : ""}
                       {league.role === "admin" && (
                         <span className="ml-2 rounded-full bg-blue-900/50 px-2 py-0.5 text-xs font-medium text-blue-300">
                           admin
                         </span>
                       )}
                     </p>
+                    {league.description && (
+                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                        {league.description}
+                      </p>
+                    )}
                   </div>
 
                   {/* Sport badge */}

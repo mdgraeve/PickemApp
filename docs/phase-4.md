@@ -246,6 +246,32 @@ Overhauled the two highest-traffic pages to feel less minimal and more like a re
 
 ---
 
+---
+
+### 10. Create League Dialog
+
+**Status: Complete**
+
+Replaced the standalone `/leagues/new` form page with a modal dialog that slides in over the current page.
+
+- **Trigger points:** The `+ New` header button and the empty-state "Create League" button on the homepage both open the dialog; `/leagues/new` now redirects to `/?create=1` which auto-opens it.
+- **Fields:**
+  - **League name** — required text input (max 80 chars)
+  - **Sport** — 3×2 visual grid of emoji sport cards; selected card highlights with `border-blue-500 bg-blue-600/20`
+  - **Description** — optional textarea (max 300 chars) with live character counter
+  - **Member limit** — toggle switch; when enabled, a number input (2–500) sets `maxMembers`; off = unlimited
+  - **Visibility** — Private / Public button pair (private = invite-code only; public stored for future directory feature)
+- **UX:** Backdrop click or Escape closes the dialog; body scroll is locked while open; submit disabled until name + sport are both filled; on success the new league is prepended to the dashboard list without a full-page reload.
+- **Schema:** Added `description String?`, `maxMembers Int?`, `isPrivate Boolean @default(true)` to `League`. Migration `20260411133614_add_league_description_maxmembers_isprivate` applied.
+- **API:** `POST /api/leagues` now accepts and persists all three new fields.
+
+**New file:** `app/components/create-league-dialog.tsx`
+**Files changed:** `app/page.tsx`, `app/leagues/new/page.tsx`, `app/api/leagues/route.ts`, `prisma/schema.prisma`
+**Schema changes:** Yes — see above.
+**API changes:** `POST /api/leagues` accepts optional `description`, `maxMembers`, `isPrivate`.
+
+---
+
 ## What the current codebase supports
 
 | Requirement | Supported now? | Notes |
@@ -258,3 +284,4 @@ Overhauled the two highest-traffic pages to feel less minimal and more like a re
 | Actionable empty states | Yes | Completed in Task 6 |
 | Team logos | Yes | Completed in Task 7 |
 | Color themes (6) | Yes | Completed in Task 8 |
+| Create League dialog | Yes | Completed in Task 10 |
