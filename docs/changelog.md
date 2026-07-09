@@ -1,5 +1,61 @@
 # Changelog
 
+## 2026-04-11 (Fix: slate promotion stuck when games lack espnGameId or cron missed past-date completions)
+
+**Why:** Three compounding bugs prevented the MLB slate from promoting: (1) Games created from SportGame records that were missing `espnId` at creation time have `espnGameId = null`, so the cron's primary ID-based lookup returns nothing and those games stay "scheduled" forever, blocking the promotion count check. (2) The past-date deduplication merged today's potentially stale "in_progress" status over yesterday's correct "completed" status. (3) No admin escape hatch existed to manually complete a stuck slate.
+
+**`app/api/cron/sync-scores/route.ts`**: Added team-name + calendar-day fallback match: if `prisma.game.findMany({ where: { espnGameId } })` returns nothing, a second query matches by `homeTeam`, `awayTeam`, and `startTime` within the same UTC day, scoped to active-slate games. On a fallback hit, `espnGameId` is backfilled in the same update so future runs use the fast path. Fixed deduplication order: past-date games are now prepended before today's scoreboard results, so the completed past-date version of a game takes priority over any stale "in_progress" version still appearing in today's feed.
+
+**`app/api/leagues/[leagueId]/slates/[slateId]/promote/route.ts`** *(new)*: `POST` — admin-only break-glass endpoint. Verifies all games in the slate are completed (returns 400 with incomplete game list if not), then marks the slate as "completed" and activates the next slate by position.
+
+**`app/leagues/[leagueId]/admin/page.tsx`**: Added "Force complete & promote" button visible on active slates. Calls the promote endpoint, shows which games still need scores if any are unscored, and updates local slate state on success.
+
+## 2026-04-11 (Fix: cron score sync missed completed games from previous calendar days)
+
+**Why:** `fetchESPNScoreboard` fetches today's scoreboard with no date parameter. Games that finished yesterday (or earlier) are no longer in that response, so the cron never marked them as completed, slate promotion never fired, and the next slate stayed `upcoming` indefinitely. Reproduced with MLB slates spanning a day boundary.
+
+**`app/api/cron/sync-scores/route.ts`**: Added past-date back-fill. The `slate.findMany` query now includes unscored games via `include: { games: { where: { status: { not: "completed" } }, select: { startTime } } }`. Before the sport loop, we build a `sportPastDates` map of `sport → Set<YYYYMMDD>` for any unscored game whose `startTime` is before today. In the sport loop, after fetching today's scoreboard with `fetchESPNScoreboard`, we additionally call `fetchESPNSchedule(sport, date)` for each past date (failures are silently skipped). Results are deduplicated by ESPN game ID before processing, so a game that spans a day boundary is only scored once.
+
+**`app/api/cron/sync-scores/__tests__/route.test.ts`**: Added `fetchESPNSchedule` to the ESPN mock. Added `games: []` to existing slate fixtures. Added 3 new tests: fetches past-date scoreboard when unscored past games exist, does not call `fetchESPNSchedule` when all games are today or future, and continues gracefully when a past-date ESPN fetch fails.
+
+## 2026-04-11 (Phase 6A+B: Auto-slate creation for NFL and NCAAF)
+
+**Why:** Admins had to manually enter a date, sync ESPN, select individual games, and create slates by hand every week. For NFL and college football this is unnecessary — every week's games are known in advance and the week/season are unambiguous. Automating slate creation reduces weekly admin burden to one click with a preview step.
+
+**`lib/football.ts`** *(new)*: Football-specific constants and utilities. `NCAAF_CONFERENCES` — array of ESPN group IDs for the 10 major FBS conferences (ACC, Big 12, Big Ten, SEC, AAC, C-USA, MAC, MWC, Sun Belt, FBS Independents). `FBS_GROUP_ID = 80` for unfiltered FBS fetches. `inferFootballSeason()` — returns the current season year (Aug–Dec → current year, Jan–Jul → prior year). `weekSlateName(leagueName, week)` — formats canonical slate names as `"[League Name] – Week [N]"`.
+
+**`lib/espn.ts`**: Refactored `fetchAndParse` into two layers: `httpFetch(url)` (retry logic, returns Response) and `fetchAndParse(url)` (calls httpFetch, parses ESPNGame[]). Added `ESPNWeekInfo` export type. Added `fetchESPNCurrentWeek(sport)` — fetches the current scoreboard and extracts `week.number` + `season.year` from ESPN's metadata. Added `fetchESPNWeeklyGames(sport, week, season, conferenceIds?)` — fetches all games for a specific NFL or NCAAF week; for NCAAF with conference IDs, makes one request per conference via `Promise.allSettled` and merges + deduplicates results by ESPN game ID (failed conferences are skipped rather than failing the whole request).
+
+**`app/api/leagues/[leagueId]/slates/auto-preview/route.ts`** *(new)*: Two handlers on the same route. `GET` — returns `{ weekNumber, season, seasonType }` from ESPN's current scoreboard (used to seed the week selector in the admin UI). `POST` — body `{ week, season, conferences? }` → calls `fetchESPNWeeklyGames` → upserts into `SportGame` (same logic as sync-espn) → returns `{ slateName, weekNumber, season, sportGames[] }`. NFL and NCAAF only; `conferences` is ignored for NFL. Rate-limited to 20 calls/min per user.
+
+**`app/api/leagues/[leagueId]/slates/auto-create/route.ts`** *(new)*: `POST` — body `{ name, sportGameIds[] }` → validates games exist and match league sport → auto-computes next `position` and `status` (active if no active slate, upcoming otherwise) → creates Slate + all Game rows in a single `$transaction` → returns `{ slate, games }`.
+
+**`app/leagues/[leagueId]/admin/page.tsx`**: Added `NCAAF_CONFERENCES` import. Added "Auto-create Slate" panel (rendered only for NFL/NCAAF leagues) above the slates list. Clicking the button calls the `GET auto-preview` endpoint to seed the week selector, then shows: week navigator (← Week N →, capped 1–22), season year input, conference checkboxes (NCAAF only, styled as toggle cards), "Preview Games" button, a scrollable deselectable game list (select/deselect all controls included), editable slate name pre-filled from `weekSlateName`, and "Create Slate with N games" button. On success, the new slate is prepended to the list and the panel closes.
+
+**`lib/__tests__/espn.test.ts`**: Added 9 tests for `fetchESPNCurrentWeek` (current week parse, fallback, URL shape, error propagation) and `fetchESPNWeeklyGames` (NFL URL, NCAAF all-FBS, multi-conference merge, dedup, conference failure resilience).
+
+**`app/api/.../auto-preview/__tests__/route.test.ts`** *(new)*: 20 tests covering GET and POST handlers — auth, admin guard, sport guard, input validation, ESPN success/empty/error, insert vs update paths, conference ID forwarding.
+
+**`app/api/.../auto-create/__tests__/route.test.ts`** *(new)*: 13 tests — auth, admin guard, input validation, sport mismatch, position computation (next = max+1), status selection (active vs upcoming), transaction result shape.
+
+Test count: 282 → 324 (all passing). No schema changes.
+
+---
+
+## 2026-04-11 (ESPN reliability: retry logic + manual score override)
+
+**Why:** ESPN's API is undocumented and has no SLA. Transient 5xx/429 errors during live games would silently skip the score-sync cron and leave picks unscored. Additionally, removing manual score entry in the previous session left no fallback if the cron fails entirely — admins had no way to unblock a slate mid-game.
+
+**`lib/espn.ts`**: `fetchAndParse` now retries up to 3 total attempts (1 initial + 2 retries) with exponential backoff (1 s → 2 s → 4 s). Retries on HTTP 5xx and 429; does not retry on other 4xx client errors (those indicate a bug in our request, not a transient failure). Network-level errors (DNS, connection refused) are always retried. Applies to both `fetchESPNSchedule` and `fetchESPNScoreboard` since both go through `fetchAndParse`.
+
+**`lib/__tests__/espn.test.ts`**: Rewrote HTTP-error tests to use `vi.useFakeTimers()` so retry delays are instant in tests. Removed the two old "throws on non-ok status" tests (503, 429) that would have been slow and mis-tested retry counts; replaced with a "no retry on 4xx" assertion. Added 6 new retry tests: persistent 503 exhausts 3 attempts, persistent 429 exhausts 3 attempts, success on 2nd attempt after transient 503, success on 3rd attempt after two 503s, retry on network error then success, network error exhausts all attempts.
+
+**`app/leagues/[leagueId]/admin/page.tsx`**: Re-added manual score entry as a collapsible break-glass control per pending game. By default each pending game shows a subtle "Override score manually" text link. Clicking it expands an amber-tinted form with a warning ("only use if ESPN sync has failed"), away/home score inputs, and a "Save Final Score" button. Submits via the existing `PATCH /api/leagues/[leagueId]/games/[gameId]` endpoint; on success the game immediately shows "Final: A–H" in the admin view and slate-promotion logic runs as usual.
+
+Test count: 276 → 282 (all passing).
+
+---
+
 ## 2026-04-11 (Create League dialog with description, member limit, and visibility)
 
 **Why:** The previous "Create League" flow navigated to a separate `/leagues/new` page with only two fields (name + sport). A modal dialog keeps users in context (no full-page navigation), and the expanded field set — description, member cap, and private/public toggle — gives league creators meaningful control before inviting anyone.

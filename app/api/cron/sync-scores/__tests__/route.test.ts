@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/espn", () => ({
   fetchESPNScoreboard: vi.fn(),
+  fetchESPNSchedule: vi.fn(),
 }));
 
 // Full prisma mock with every method used by the route + tryPromoteNextSlate
@@ -27,7 +28,7 @@ vi.mock("@/lib/db", () => ({
 
 import { POST } from "../route";
 import { prisma } from "@/lib/db";
-import { fetchESPNScoreboard } from "@/lib/espn";
+import { fetchESPNScoreboard, fetchESPNSchedule } from "@/lib/espn";
 
 const mockSlateFindMany = prisma.slate.findMany as ReturnType<typeof vi.fn>;
 const mockSlateUpdate = prisma.slate.update as ReturnType<typeof vi.fn>;
@@ -36,6 +37,7 @@ const mockGameFindMany = prisma.game.findMany as ReturnType<typeof vi.fn>;
 const mockGameCount = prisma.game.count as ReturnType<typeof vi.fn>;
 const mockGameUpdate = prisma.game.update as ReturnType<typeof vi.fn>;
 const mockFetchESPNScoreboard = fetchESPNScoreboard as ReturnType<typeof vi.fn>;
+const mockFetchESPNSchedule = fetchESPNSchedule as ReturnType<typeof vi.fn>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -91,13 +93,14 @@ const scheduledESPNGame = {
   shortDetail: null,
 };
 
-// A lean active slate fixture
+// A lean active slate fixture (games: [] means no unscored past-date games)
 const activeNFLSlate = {
   id: "slate-1",
   leagueId: "league-1",
   position: 1,
   status: "active",
   league: { sport: "NFL" },
+  games: [],
 };
 
 // A game row in the DB linked to completedESPNGame
@@ -121,6 +124,7 @@ beforeEach(() => {
   mockGameCount.mockResolvedValue(0);
   mockSlateUpdate.mockResolvedValue({ id: "slate-1", position: 1 });
   mockSlateFindFirst.mockResolvedValue(null);
+  mockFetchESPNSchedule.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -180,8 +184,37 @@ describe("POST /api/cron/sync-scores — score writes", () => {
     expect(body.updated).toBe(1);
     expect(mockGameUpdate).toHaveBeenCalledWith({
       where: { id: "game-1" },
-      data: { homeScore: 27, awayScore: 20, status: "completed" },
+      data: {
+        homeScore: 27,
+        awayScore: 20,
+        status: "completed",
+        espnGameId: "espn-401547417", // backfill / preserve existing ID
+      },
     });
+  });
+
+  it("falls back to team-name + date match when espnGameId is null, and backfills it", async () => {
+    const gameWithoutEspnId = { ...dbGame, espnGameId: null };
+
+    mockSlateFindMany.mockResolvedValue([activeNFLSlate]);
+    mockFetchESPNScoreboard.mockResolvedValue([completedESPNGame]);
+    // First findMany (by espnGameId) returns nothing; second (fallback) returns the game
+    mockGameFindMany
+      .mockResolvedValueOnce([])           // espnGameId lookup: miss
+      .mockResolvedValueOnce([gameWithoutEspnId]); // team+date fallback: hit
+    mockGameUpdate.mockResolvedValue({ ...gameWithoutEspnId, status: "completed" });
+
+    const res = await POST(makeRequest(CRON_SECRET));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.updated).toBe(1);
+    // espnGameId should be set during the update (backfill)
+    expect(mockGameUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ espnGameId: completedESPNGame.id }),
+      }),
+    );
   });
 
   it("does not update in-progress games", async () => {
@@ -305,12 +338,96 @@ describe("POST /api/cron/sync-scores — slate promotion", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Past-date back-fill
+// ---------------------------------------------------------------------------
+
+describe("POST /api/cron/sync-scores — past-date back-fill", () => {
+  it("prioritises past-date completed status over today's stale in-progress status", async () => {
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+    const slateWithPastGame = { ...activeNFLSlate, games: [{ startTime: yesterday }] };
+    // Today's scoreboard shows game as in_progress (stale); past-date shows completed
+    const todayStaleGame = { ...inProgressESPNGame, id: "espn-401547417" }; // same id as completed
+    const pastCompletedGame = { ...completedESPNGame }; // id "espn-401547417", completed
+
+    mockSlateFindMany.mockResolvedValue([slateWithPastGame]);
+    mockFetchESPNScoreboard.mockResolvedValue([todayStaleGame]);
+    mockFetchESPNSchedule.mockResolvedValue([pastCompletedGame]);
+    mockGameFindMany.mockResolvedValue([dbGame]);
+    mockGameUpdate.mockResolvedValue({ ...dbGame, status: "completed" });
+
+    await POST(makeRequest(CRON_SECRET));
+
+    // Past-date completed version should win; game is updated as completed
+    expect(mockGameUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "completed", homeScore: 27, awayScore: 20 }),
+      }),
+    );
+  });
+
+  it("fetches ESPN for past dates when active slate has unscored games from previous days", async () => {
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    yesterday.setUTCHours(20, 0, 0, 0);
+    const expectedDate = yesterday.toISOString().slice(0, 10).replace(/-/g, "");
+
+    const slateWithPastGame = {
+      ...activeNFLSlate,
+      games: [{ startTime: yesterday }],
+    };
+    const pastDbGame = { ...dbGame, id: "game-past", espnGameId: "espn-past-1" };
+    const completedPastESPNGame = { ...completedESPNGame, id: "espn-past-1" };
+
+    mockSlateFindMany.mockResolvedValue([slateWithPastGame]);
+    mockFetchESPNScoreboard.mockResolvedValue([]); // nothing in today's window
+    mockFetchESPNSchedule.mockResolvedValue([completedPastESPNGame]);
+    mockGameFindMany.mockResolvedValue([pastDbGame]);
+    mockGameUpdate.mockResolvedValue({ ...pastDbGame, status: "completed" });
+
+    const res = await POST(makeRequest(CRON_SECRET));
+    const body = await res.json();
+
+    expect(mockFetchESPNSchedule).toHaveBeenCalledWith("NFL", expectedDate);
+    expect(body.updated).toBe(1);
+  });
+
+  it("does not call fetchESPNSchedule when all unscored games are today or in the future", async () => {
+    // activeNFLSlate has games: [] so no past dates
+    mockSlateFindMany.mockResolvedValue([activeNFLSlate]);
+    mockFetchESPNScoreboard.mockResolvedValue([]);
+
+    await POST(makeRequest(CRON_SECRET));
+
+    expect(mockFetchESPNSchedule).not.toHaveBeenCalled();
+  });
+
+  it("continues gracefully when past-date ESPN fetch fails", async () => {
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+    const slateWithPastGame = { ...activeNFLSlate, games: [{ startTime: yesterday }] };
+
+    mockSlateFindMany.mockResolvedValue([slateWithPastGame]);
+    mockFetchESPNScoreboard.mockResolvedValue([]);
+    mockFetchESPNSchedule.mockRejectedValue(new Error("ESPN 503"));
+
+    const res = await POST(makeRequest(CRON_SECRET));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.updated).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Multi-sport
 // ---------------------------------------------------------------------------
 
 describe("POST /api/cron/sync-scores — multi-sport", () => {
   it("polls ESPN once per distinct sport", async () => {
-    const nbaSlate = { id: "slate-2", leagueId: "league-2", status: "active", league: { sport: "NBA" } };
+    const nbaSlate = { id: "slate-2", leagueId: "league-2", status: "active", league: { sport: "NBA" }, games: [] };
 
     mockSlateFindMany.mockResolvedValue([activeNFLSlate, nbaSlate]);
     mockFetchESPNScoreboard.mockResolvedValue([]);
@@ -331,6 +448,7 @@ describe("POST /api/cron/sync-scores — multi-sport", () => {
       leagueId: "league-3",
       status: "active",
       league: { sport: "NFL" },
+      games: [],
     };
 
     mockSlateFindMany.mockResolvedValue([activeNFLSlate, anotherNFLSlate]);
@@ -361,7 +479,7 @@ describe("POST /api/cron/sync-scores — ESPN errors", () => {
   });
 
   it("continues with other sports when one sport fails", async () => {
-    const nbaSlate = { id: "slate-2", leagueId: "league-2", status: "active", league: { sport: "NBA" } };
+    const nbaSlate = { id: "slate-2", leagueId: "league-2", status: "active", league: { sport: "NBA" }, games: [] };
     const nbaGame = { ...dbGame, id: "game-2", espnGameId: "espn-nba-1" };
     const completedNBAGame = { ...completedESPNGame, id: "espn-nba-1" };
 

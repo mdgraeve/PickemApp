@@ -73,6 +73,16 @@ This design means:
 
 "App admin" (who can trigger schedule syncs) is separate from "league admin" (who can manage a specific league). App-level admin is gated by the `APP_ADMIN_EMAILS` environment variable (comma-separated email list) checked server-side against `session.user.email`. There is no `isAppAdmin` flag on the `User` model — this is an operational concern, not a user-facing feature.
 
+## Auto-slate (Phase 6A/B)
+
+League admins for NFL and NCAAF leagues can create slates automatically from ESPN weekly schedules. The flow is:
+
+1. **Preview** (`GET /api/leagues/[leagueId]/slates/auto-preview`) — returns ESPN's current week number, season, and season type so the UI can seed the week picker.
+2. **Fetch games** (`POST /api/leagues/[leagueId]/slates/auto-preview`) — accepts `{ week, season, conferences? }`, calls ESPN, upserts results into the `SportGame` master table, and returns a proposed `slateName` plus the matching `SportGame` rows for admin review. NCAAF supports optional conference filtering via `conferences[]` (ESPN group IDs from `lib/football.ts`).
+3. **Create** (`POST /api/leagues/[leagueId]/slates/auto-create`) — accepts `{ name, sportGameIds[] }` and atomically creates a `Slate` + `Game` rows in one transaction. Auto-assigns position (max + 1) and status (`active` if no active slate exists, `upcoming` otherwise).
+
+All three endpoints require league admin role. The preview step upserts `SportGame` rows using ESPN game IDs as idempotency keys (same pattern as `/sync-espn`). Season inference logic lives in `lib/football.ts` (`inferFootballSeason`): Aug–Dec maps to the current year, Jan–Jul maps to the prior year. Slate names follow the convention `"[League Name] – Week [N]"` (en-dash U+2013).
+
 ## Cron jobs
 
 Background score-sync runs via Vercel Cron, which calls `POST /api/cron/sync-scores` on a schedule. The endpoint is authenticated with an `x-cron-secret` header (checked against the `CRON_SECRET` env var). The endpoint is idempotent — safe to call multiple times; it always returns `200` even when there is nothing to update, to prevent Vercel retry loops.

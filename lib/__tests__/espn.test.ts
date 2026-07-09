@@ -1,5 +1,11 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { parseESPNEvents, fetchESPNSchedule, fetchESPNScoreboard } from "@/lib/espn";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import {
+  parseESPNEvents,
+  fetchESPNSchedule,
+  fetchESPNScoreboard,
+  fetchESPNCurrentWeek,
+  fetchESPNWeeklyGames,
+} from "@/lib/espn";
 
 import scheduleFixture from "@/__tests__/fixtures/espn-nfl-schedule.json";
 import scoreboardFixture from "@/__tests__/fixtures/espn-nfl-scoreboard.json";
@@ -321,21 +327,10 @@ describe("parseESPNEvents — edge cases", () => {
 });
 
 // ---------------------------------------------------------------------------
-// fetchESPNSchedule — HTTP error handling
+// fetchESPNSchedule — URL construction and successful response
 // ---------------------------------------------------------------------------
 
 describe("fetchESPNSchedule", () => {
-  it("throws when ESPN returns a non-ok status", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 503, statusText: "Service Unavailable" }),
-    );
-
-    await expect(fetchESPNSchedule("NFL", "20260914")).rejects.toThrow(
-      "ESPN API request failed: 503 Service Unavailable",
-    );
-  });
-
   it("calls the correct ESPN URL for a given sport and date", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -363,24 +358,27 @@ describe("fetchESPNSchedule", () => {
     const calledUrl = mockFetch.mock.calls[0][0] as string;
     expect(calledUrl).toContain("basketball/nba/scoreboard");
   });
+
+  it("throws immediately on a non-retryable 4xx error (no retry)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(fetchESPNSchedule("NFL", "20260914")).rejects.toThrow(
+      "ESPN API request failed: 404 Not Found",
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
-// fetchESPNScoreboard — HTTP error handling
+// fetchESPNScoreboard — URL construction and successful response
 // ---------------------------------------------------------------------------
 
 describe("fetchESPNScoreboard", () => {
-  it("throws when ESPN returns a non-ok status", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 429, statusText: "Too Many Requests" }),
-    );
-
-    await expect(fetchESPNScoreboard("NFL")).rejects.toThrow(
-      "ESPN API request failed: 429 Too Many Requests",
-    );
-  });
-
   it("calls the correct ESPN URL for a given sport", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -404,5 +402,312 @@ describe("fetchESPNScoreboard", () => {
     expect(games).toHaveLength(3);
     expect(games[0].status).toBe("completed");
     expect(games[0].homeScore).toBe(27);
+  });
+
+  it("throws immediately on a non-retryable 4xx error (no retry)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(fetchESPNScoreboard("NFL")).rejects.toThrow(
+      "ESPN API request failed: 400 Bad Request",
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Retry behaviour — uses fake timers to avoid real delays in tests
+// ---------------------------------------------------------------------------
+
+describe("retry behaviour", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("retries 3 times total on persistent 503 then throws", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable",
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = fetchESPNScoreboard("NFL");
+    // Attach rejection handler before advancing timers to avoid unhandled rejection
+    const assertion = expect(promise).rejects.toThrow("ESPN API request failed: 503 Service Unavailable");
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries 3 times total on persistent 429 then throws", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: "Too Many Requests",
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = fetchESPNScoreboard("NFL");
+    const assertion = expect(promise).rejects.toThrow("ESPN API request failed: 429 Too Many Requests");
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("succeeds on the 2nd attempt after a transient 503", async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, statusText: "Service Unavailable" })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ events: [] }) });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = fetchESPNSchedule("NFL", "20260914");
+    await vi.runAllTimersAsync();
+
+    await expect(promise).resolves.toEqual([]);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("succeeds on the 3rd attempt after two transient 503s", async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, statusText: "Service Unavailable" })
+      .mockResolvedValueOnce({ ok: false, status: 503, statusText: "Service Unavailable" })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ events: [] }) });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = fetchESPNSchedule("NFL", "20260914");
+    await vi.runAllTimersAsync();
+
+    await expect(promise).resolves.toEqual([]);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries on network error then succeeds", async () => {
+    const mockFetch = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ events: [] }) });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = fetchESPNScoreboard("NBA");
+    await vi.runAllTimersAsync();
+
+    await expect(promise).resolves.toEqual([]);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws a network error message after all attempts exhausted", async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", mockFetch);
+
+    const promise = fetchESPNScoreboard("NBA");
+    const assertion = expect(promise).rejects.toThrow("ESPN API network error after 3 attempts");
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchESPNCurrentWeek
+// ---------------------------------------------------------------------------
+
+describe("fetchESPNCurrentWeek", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns weekNumber, season, and seasonType from the ESPN response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            season: { year: 2026, type: 2 },
+            week: { number: 4 },
+            events: [],
+          }),
+      }),
+    );
+
+    const info = await fetchESPNCurrentWeek("NFL");
+    expect(info.weekNumber).toBe(4);
+    expect(info.season).toBe(2026);
+    expect(info.seasonType).toBe(2);
+  });
+
+  it("falls back to weekNumber 1 when week field is missing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ season: { year: 2026, type: 2 }, events: [] }),
+      }),
+    );
+
+    const info = await fetchESPNCurrentWeek("NFL");
+    expect(info.weekNumber).toBe(1);
+  });
+
+  it("constructs a URL without week or date params (fetches current week)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ season: { year: 2026, type: 2 }, week: { number: 1 }, events: [] }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await fetchESPNCurrentWeek("NCAAF");
+
+    const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).toContain("college-football/scoreboard");
+    expect(url).not.toContain("week=");
+    expect(url).not.toContain("dates=");
+  });
+
+  it("throws on ESPN error (propagated from httpFetch)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: "Not Found" }),
+    );
+
+    await expect(fetchESPNCurrentWeek("NFL")).rejects.toThrow(
+      "ESPN API request failed: 404 Not Found",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchESPNWeeklyGames
+// ---------------------------------------------------------------------------
+
+describe("fetchESPNWeeklyGames", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("constructs correct URL for NFL (no groups param)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ events: [] }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await fetchESPNWeeklyGames("NFL", 4, 2026);
+
+    const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).toContain("football/nfl/scoreboard");
+    expect(url).toContain("seasontype=2");
+    expect(url).toContain("week=4");
+    expect(url).toContain("dates=2026");
+    expect(url).not.toContain("groups=");
+  });
+
+  it("constructs correct URL for NCAAF with no conferences (groups=80)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ events: [] }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await fetchESPNWeeklyGames("NCAAF", 1, 2026);
+
+    const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).toContain("college-football/scoreboard");
+    expect(url).toContain("groups=80");
+  });
+
+  it("makes one request per conference and merges results for NCAAF", async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          events: [{
+            id: "game-1",
+            date: "2026-09-07T20:00:00Z",
+            status: { type: { name: "STATUS_SCHEDULED", completed: false } },
+            competitions: [{ competitors: [
+              { homeAway: "home", team: { displayName: "Alabama" } },
+              { homeAway: "away", team: { displayName: "Georgia" } },
+            ]}],
+          }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          events: [{
+            id: "game-2",
+            date: "2026-09-07T20:00:00Z",
+            status: { type: { name: "STATUS_SCHEDULED", completed: false } },
+            competitions: [{ competitors: [
+              { homeAway: "home", team: { displayName: "Ohio State" } },
+              { homeAway: "away", team: { displayName: "Michigan" } },
+            ]}],
+          }],
+        }),
+      });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const games = await fetchESPNWeeklyGames("NCAAF", 1, 2026, [8, 5]);
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(games).toHaveLength(2);
+    expect(games.map((g) => g.id)).toEqual(["game-1", "game-2"]);
+  });
+
+  it("deduplicates games that appear in multiple conference responses", async () => {
+    const sharedEvent = {
+      id: "game-shared",
+      date: "2026-09-07T20:00:00Z",
+      status: { type: { name: "STATUS_SCHEDULED", completed: false } },
+      competitions: [{ competitors: [
+        { homeAway: "home", team: { displayName: "Team A" } },
+        { homeAway: "away", team: { displayName: "Team B" } },
+      ]}],
+    };
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ events: [sharedEvent] }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const games = await fetchESPNWeeklyGames("NCAAF", 1, 2026, [8, 5]);
+
+    expect(games).toHaveLength(1);
+    expect(games[0].id).toBe("game-shared");
+  });
+
+  it("skips a conference that returns an ESPN error and returns the rest", async () => {
+    vi.useFakeTimers();
+    try {
+      const mockFetch = vi.fn()
+        .mockResolvedValueOnce({ ok: false, status: 503, statusText: "Service Unavailable" })
+        .mockResolvedValueOnce({ ok: false, status: 503, statusText: "Service Unavailable" })
+        .mockResolvedValueOnce({ ok: false, status: 503, statusText: "Service Unavailable" })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({
+            events: [{
+              id: "game-ok",
+              date: "2026-09-07T20:00:00Z",
+              status: { type: { name: "STATUS_SCHEDULED", completed: false } },
+              competitions: [{ competitors: [
+                { homeAway: "home", team: { displayName: "Ohio State" } },
+                { homeAway: "away", team: { displayName: "Michigan" } },
+              ]}],
+            }],
+          }),
+        });
+      vi.stubGlobal("fetch", mockFetch);
+
+      // Conference 8 (SEC) will fail all retries; conference 5 (Big Ten) succeeds
+      const promise = fetchESPNWeeklyGames("NCAAF", 1, 2026, [8, 5]);
+      await vi.runAllTimersAsync();
+      const games = await promise;
+
+      expect(games).toHaveLength(1);
+      expect(games[0].id).toBe("game-ok");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

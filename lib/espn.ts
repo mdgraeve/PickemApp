@@ -16,6 +16,15 @@ import type { Sport } from "@/lib/sports";
 
 export type ESPNGameStatus = "scheduled" | "in_progress" | "completed";
 
+/** Season and week metadata returned by the ESPN scoreboard for football sports. */
+export type ESPNWeekInfo = {
+  weekNumber: number;
+  /** Four-digit season start year, e.g. 2026. */
+  season: number;
+  /** 1 = preseason, 2 = regular, 3 = postseason. */
+  seasonType: number;
+};
+
 export type ESPNGame = {
   /** ESPN's own stable identifier for the event. */
   id: string;
@@ -79,6 +88,10 @@ type RawEvent = {
 
 type RawScoreboardResponse = {
   events?: RawEvent[];
+  /** Present on NFL and NCAAF scoreboards. */
+  season?: { year: number; type: number };
+  /** Present on NFL and NCAAF scoreboards. */
+  week?: { number: number };
 };
 
 // ---------------------------------------------------------------------------
@@ -160,13 +173,63 @@ function scoreboardUrl(sport: Sport, params?: Record<string, string>): string {
   return `${base}?${new URLSearchParams(params).toString()}`;
 }
 
-async function fetchAndParse(url: string): Promise<ESPNGame[]> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(
-      `ESPN API request failed: ${res.status} ${res.statusText} — ${url}`,
-    );
+/** Max number of attempts (1 initial + 2 retries). */
+const MAX_ATTEMPTS = 3;
+
+/** Delay in ms before each retry: [attempt-1] → delay. */
+const RETRY_DELAYS_MS = [1000, 2000, 4000];
+
+/** True for status codes worth retrying (server errors + rate-limiting). */
+function isRetryable(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetches a URL with retry logic, returning the raw Response.
+ * Retries on HTTP 5xx and 429 (rate-limit) and on network-level errors.
+ * Does NOT retry on other 4xx status codes.
+ */
+async function httpFetch(url: string): Promise<Response> {
+  let attempt = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let res: Response;
+    try {
+      res = await fetch(url);
+    } catch (networkErr) {
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await sleep(RETRY_DELAYS_MS[attempt]);
+        attempt++;
+        continue;
+      }
+      throw new Error(
+        `ESPN API network error after ${MAX_ATTEMPTS} attempts — ${url}: ${String(networkErr)}`,
+      );
+    }
+
+    if (!res.ok) {
+      const err = new Error(
+        `ESPN API request failed: ${res.status} ${res.statusText} — ${url}`,
+      );
+      if (isRetryable(res.status) && attempt < MAX_ATTEMPTS - 1) {
+        await sleep(RETRY_DELAYS_MS[attempt]);
+        attempt++;
+        continue;
+      }
+      throw err;
+    }
+
+    return res;
   }
+}
+
+async function fetchAndParse(url: string): Promise<ESPNGame[]> {
+  const res = await httpFetch(url);
   const data = (await res.json()) as RawScoreboardResponse;
   return parseESPNEvents(data);
 }
@@ -195,4 +258,85 @@ export async function fetchESPNSchedule(
 export async function fetchESPNScoreboard(sport: Sport): Promise<ESPNGame[]> {
   const url = scoreboardUrl(sport, { limit: "100" });
   return fetchAndParse(url);
+}
+
+/**
+ * Returns the current week number and season year from ESPN for a football sport.
+ * Only meaningful for NFL and NCAAF; other sports don't carry week metadata.
+ * Falls back to week 1 / inferred season if the ESPN response omits the fields.
+ */
+export async function fetchESPNCurrentWeek(
+  sport: "NFL" | "NCAAF",
+): Promise<ESPNWeekInfo> {
+  const url = scoreboardUrl(sport as Sport);
+  const res = await httpFetch(url);
+  const data = (await res.json()) as RawScoreboardResponse;
+  const { inferFootballSeason } = await import("@/lib/football");
+  return {
+    weekNumber: data.week?.number ?? 1,
+    season: data.season?.year ?? inferFootballSeason(),
+    seasonType: data.season?.type ?? 2,
+  };
+}
+
+/**
+ * Fetches all games for a specific NFL or NCAAF week from ESPN.
+ *
+ * For NCAAF, pass an array of ESPN conference group IDs to filter results.
+ * When multiple conference IDs are given, one ESPN request is made per conference
+ * and the results are merged and de-duplicated by ESPN game ID.
+ * If no conference IDs are provided for NCAAF, all FBS games are returned
+ * (groups=80).
+ *
+ * @param sport         "NFL" or "NCAAF"
+ * @param week          Regular-season week number (1-based)
+ * @param season        Four-digit season start year (e.g. 2026)
+ * @param conferenceIds ESPN group IDs to filter NCAAF by conference
+ */
+export async function fetchESPNWeeklyGames(
+  sport: "NFL" | "NCAAF",
+  week: number,
+  season: number,
+  conferenceIds?: number[],
+): Promise<ESPNGame[]> {
+  const baseParams: Record<string, string> = {
+    seasontype: "2",
+    week: String(week),
+    dates: String(season),
+    limit: "100",
+  };
+
+  if (sport === "NFL") {
+    return fetchAndParse(scoreboardUrl(sport as Sport, baseParams));
+  }
+
+  // NCAAF — filter by conference or fall back to all FBS
+  if (!conferenceIds || conferenceIds.length === 0) {
+    return fetchAndParse(
+      scoreboardUrl(sport as Sport, { ...baseParams, groups: "80" }),
+    );
+  }
+
+  // One request per selected conference; merge and deduplicate by ESPN game ID.
+  const results = await Promise.allSettled(
+    conferenceIds.map((id) =>
+      fetchAndParse(
+        scoreboardUrl(sport as Sport, { ...baseParams, groups: String(id) }),
+      ),
+    ),
+  );
+
+  const seen = new Set<string>();
+  const merged: ESPNGame[] = [];
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const game of result.value) {
+        if (!seen.has(game.id)) {
+          seen.add(game.id);
+          merged.push(game);
+        }
+      }
+    }
+  }
+  return merged;
 }
