@@ -1,16 +1,50 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
-export default function LoginPage() {
+// Only allow relative paths so the callbackUrl query param can't be used
+// to redirect users to an external site after sign-in.
+function safeCallbackUrl(raw: string | null): string {
+  if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
+  return "/";
+}
+
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await signIn("email", { email, callbackUrl: "/" });
+    setError(null);
+    try {
+      const res = await signIn("email", {
+        email,
+        callbackUrl,
+        redirect: false,
+      });
+      if (res?.ok) {
+        router.push("/login/verify");
+        return;
+      }
+      if (res?.status === 429) {
+        setError(
+          "Too many sign-in attempts. Please wait a few minutes and try again.",
+        );
+      } else {
+        setError("Something went wrong sending the link. Please try again.");
+      }
+    } catch {
+      setError("Something went wrong sending the link. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -39,10 +73,20 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {error && <p className="text-sm text-red-400">{error}</p>}
+
         <p className="text-xs text-slate-500">
           We&apos;ll send you a magic link — no password needed.
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

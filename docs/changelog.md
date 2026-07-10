@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-07-10 (Fix: Vercel build failed — generated Prisma client missing on fresh checkout)
+
+**Why:** First Vercel deploy failed with `Module not found: Can't resolve './generated/prisma/client'`. The Prisma client is generated into `lib/generated/prisma/` which is gitignored, so it exists locally (from running `prisma generate` by hand) but not on a fresh CI/Vercel checkout.
+
+**`package.json`**: Added `"postinstall": "prisma generate"` so every `npm install` — including Vercel's build step — regenerates the client before `next build` runs. Verified locally by deleting `lib/generated/prisma`, running `npm install` (client regenerated), and completing a production build.
+
+## 2026-07-10 (Fix: Vercel Cron could never trigger score sync in production)
+
+**Why:** Vercel Cron invokes cron paths with a **GET** request and authenticates with `Authorization: Bearer <CRON_SECRET>` — it cannot send custom headers. The sync-scores route only exported `POST` and only checked an `x-cron-secret` header, so every production cron tick would have returned 405 and scores would never sync. Caught while writing the Phase 7 launch guide, before first deploy.
+
+**`app/api/cron/sync-scores/route.ts`**: Added a `GET` export (same handler). Auth now accepts either `Authorization: Bearer <CRON_SECRET>` (what Vercel sends) or the legacy `x-cron-secret` header (kept for manual/scripted invocation and existing tests).
+
+**`app/api/cron/sync-scores/__tests__/route.test.ts`**: 4 new tests — GET + valid bearer succeeds, GET with wrong/missing auth 401s, POST + bearer also accepted. Test count: 336 → 340.
+
+## 2026-07-10 (Phase 7: magic-link rate limiting, SMTP TLS root-cause fix, shareable join links, critical-path E2E)
+
+**Why:** Phase 7 hardening before inviting friends. Four of the phase's code tasks land here: the magic-link endpoint could previously be used to spam arbitrary inboxes, the SMTP config carried a TLS-verification bypass that must never reach production, invites required manually copying a raw code, and the E2E suite only covered public smoke paths.
+
+**`app/api/auth/[...nextauth]/route.ts`**: Wrapped the NextAuth catch-all `POST` handler to rate limit magic-link requests (`POST /api/auth/signin/email`) via the existing `lib/rate-limit.ts` limiter — 3 requests per email and 10 per IP (from `x-forwarded-for`) per 15 minutes. Over-limit requests get 429 with a `Retry-After` header; the JSON body includes a `url` field pointing at `/login?error=RateLimited` because NextAuth's client unconditionally parses `data.url` from sign-in responses. All other NextAuth routes pass through untouched.
+
+**`app/login/page.tsx`**: Sign-in now uses `signIn("email", { redirect: false })` and surfaces errors inline — previously a failed request silently redirected to the callback URL. Shows a specific message on 429. Reads `callbackUrl` from the query string (restricted to relative paths to prevent open redirects) so deep links — including join links — survive the magic-link round trip. Form wrapped in `Suspense` for `useSearchParams`.
+
+**`lib/auth.ts`**: Removed the `tls: { rejectUnauthorized: false }` verification bypass added in 2434251. Root cause of the original "self-signed certificate in certificate chain" error: **Norton's Web/Mail Shield intercepts TLS on the dev machine** and re-signs `smtp.resend.com`'s certificate with "Norton Web/Mail Shield Untrusted Root" (confirmed via TLS handshake diagnostic). This is dev-machine-only; production (Vercel) sees Resend's real chain. `secure` is now derived from the port (`465` = implicit TLS, otherwise STARTTLS). A new dev-only escape hatch — `EMAIL_ALLOW_INTERCEPTED_TLS=true`, ignored whenever `NODE_ENV=production` — restores the old behavior locally until Norton's mail scanning is disabled.
+
+**`app/join/[code]/page.tsx`** *(new)*: Shareable join-link page. Signed-in visitors are auto-joined via `POST /api/leagues/join` and redirected to the league; already-members are redirected straight to the league; signed-out visitors are sent to `/login?callbackUrl=/join/[code]` so the join completes after the magic-link round trip. Invalid codes get an error state with a home link.
+
+**`app/api/leagues/join/route.ts`**: The 409 "already a member" response now includes `leagueId` so the join-link page can redirect existing members to the league instead of dead-ending.
+
+**`app/leagues/[leagueId]/settings/page.tsx`**: Invite section now also shows the full join URL with its own "Copy link" button alongside the raw code.
+
+**`app/api/auth/[...nextauth]/__tests__/route.test.ts`** *(new)*: 7 tests — delegation under the limit, email normalization, IP keying, 429 + `Retry-After` on email/IP limits, pass-through for other NextAuth routes and unparseable bodies.
+
+**`e2e/critical-path.test.ts`** *(new)*: Serial Playwright suite covering the full friends-test flow: invite link → login carry-through for signed-out visitors; member joins via `/join/[code]`; re-opening the link as a member goes straight to the league; member submits picks (verified to persist across reload); admin records both final scores via the break-glass override UI (verifies slate auto-promotes to completed); leaderboard shows the member's 1-1 record ranked first. Auth is seeded directly (User + Session rows plus the `next-auth.session-token` cookie) — magic-link click-through stays out of automation scope.
+
+**`e2e/helpers/seed.ts`, `e2e/helpers/db-cli.ts`** *(new)*: Playwright's transpiler cannot load the TypeScript Prisma client that `prisma generate` emits (ESM/CJS mismatch), so specs shell out to `db-cli.ts` via `tsx` (the same runner `prisma/seed.ts` uses) for seeding, state assertions, and teardown. `seed.ts` exposes `db()` and the session-cookie helper.
+
+Test count: 336 unit (all passing) + 12 E2E (all passing). No schema changes.
+
 ## 2026-07-10 (Add Sentry error monitoring)
 
 **Why:** Phase 7 (friends test readiness) requires visibility into production errors without relying on friends to report bugs. Added via Sentry's Next.js setup wizard, with tunnel routing so ad-blockers don't silently drop client-side error reports.

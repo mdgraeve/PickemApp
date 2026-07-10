@@ -49,7 +49,8 @@ export async function POST(request: Request) {
 
   if (existing) {
     return NextResponse.json(
-      { error: "You are already a member of this league" },
+      // leagueId lets the join-link page send existing members to the league
+      { error: "You are already a member of this league", leagueId: league.id },
       { status: 409 },
     );
   }

@@ -48,6 +48,10 @@ export default function LeagueSettingsPage() {
   const [sportSuccess, setSportSuccess] = useState(false);
 
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  // Read window.location.origin after mount to avoid a hydration mismatch.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
 
   const [memberActionError, setMemberActionError] = useState<string | null>(null);
   const [memberActionPending, setMemberActionPending] = useState<string | null>(null);
@@ -152,6 +156,15 @@ export default function LeagueSettingsPage() {
     await navigator.clipboard.writeText(league.inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function copyInviteLink() {
+    if (!league) return;
+    await navigator.clipboard.writeText(
+      `${window.location.origin}/join/${league.inviteCode}`,
+    );
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   }
 
   async function handleRoleChange(userId: string, newRole: "admin" | "member") {
@@ -307,7 +320,20 @@ export default function LeagueSettingsPage() {
             {copied ? "Copied!" : "Copy"}
           </button>
         </div>
-        <p className="text-xs text-slate-500">Share this code with people you want to invite to the league.</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 truncate rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-mono text-slate-300">
+            {`${origin}/join/${league?.inviteCode}`}
+          </code>
+          <button
+            onClick={copyInviteLink}
+            className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+          >
+            {linkCopied ? "Copied!" : "Copy link"}
+          </button>
+        </div>
+        <p className="text-xs text-slate-500">
+          Share the code or the link — anyone opening the link can sign in and join in one step.
+        </p>
       </section>
 
       {/* Danger Zone */}

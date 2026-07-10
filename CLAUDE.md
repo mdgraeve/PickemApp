@@ -69,7 +69,7 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 |---|---|---|
 | `POST /api/leagues` | required | Create league; requires `name` and `sport` (NFL/NBA/MLB/NHL/NCAAF/NCAAB); creator gets `admin` role |
 | `GET /api/leagues` | required | List leagues the current user belongs to |
-| `POST /api/leagues/join` | required | Join via invite code |
+| `POST /api/leagues/join` | required | Join via invite code; 409 (already member) includes `leagueId` for the join-link redirect |
 | `GET /api/leagues/[leagueId]` | member | League details (`id`, `name`, `sport`, `inviteCode`, `memberCount`, `role`) |
 | `PATCH /api/leagues/[leagueId]` | admin | Update `name` and/or `sport`; sport change blocked once any slates exist |
 | `DELETE /api/leagues/[leagueId]` | admin | Permanently delete the league and all related data (slates, games, picks, tiebreakers) via cascade |
@@ -88,7 +88,7 @@ All protected routes guard with `getSession()` / `requireSession()` from `lib/se
 | `GET /api/sport-games` | required | Master schedule games; requires `?sport=`; optional `?season=` or `?date=YYYYMMDD` (24-hour UTC window) |
 | `POST /api/leagues/[leagueId]/slates/[slateId]/sync-espn` | league admin | Sync ESPN games for a date into SportGame; accepts `{ date: "YYYYMMDD" }`; reads league sport; returns `{ inserted, updated }` |
 | `POST /api/admin/sync-schedule` | session + `APP_ADMIN_EMAILS` | App-level bulk ESPN sync; accepts `{ sport, date: "YYYYMMDD" }`; returns `{ inserted, updated }` |
-| `POST /api/cron/sync-scores` | `x-cron-secret` header | Cron: discover active-slate sports, poll ESPN, write scores, trigger slate promotion |
+| `GET/POST /api/cron/sync-scores` | `Authorization: Bearer <CRON_SECRET>` (Vercel Cron) or `x-cron-secret` header | Cron: discover active-slate sports, poll ESPN, write scores, trigger slate promotion |
 
 ### Data model (core)
 - **User** — email-based identity
@@ -116,6 +116,8 @@ APP_ADMIN_EMAILS     # Comma-separated emails allowed to call /api/admin/sync-sc
 CRON_SECRET          # Shared secret for authenticating /api/cron/sync-scores (x-cron-secret header)
 ```
 
+Optional (dev only): `EMAIL_ALLOW_INTERCEPTED_TLS=true` disables SMTP certificate verification when local antivirus (Norton Web/Mail Shield) intercepts TLS; ignored when `NODE_ENV=production`.
+
 ### Prisma notes
 - Client is generated to `lib/generated/prisma/` (configured in `prisma.config.ts`)
 - Use the singleton from `lib/db.ts` — never instantiate `PrismaClient` elsewhere
@@ -133,3 +135,4 @@ CRON_SECRET          # Shared secret for authenticating /api/cron/sync-scores (x
 - **Phase 3 (League Management):** Complete — tiebreakers, user profiles, league settings, member management
 - **Phase 4 (UI Polish):** Complete — dark design system, nav, skeletons, empty states, team logos, color themes, homepage hero, pixel art podium
 - **Phase 5 (Sports Data Integration):** Complete — ESPN client, ESPN ID fields, schedule import (league admin + app admin), score auto-sync cron
+- **Phase 7 (Friends Test Readiness):** Code tasks complete — magic-link rate limiting, SMTP TLS fix (strict verification; Norton interception root-caused), shareable join links (`/join/[code]`), critical-path E2E suite. Manual/account tasks (domain, Vercel, prod DB, Resend verification, Sentry alerting, launch) pending — see `docs/phase-7.md`

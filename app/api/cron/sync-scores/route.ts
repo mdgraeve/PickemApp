@@ -41,12 +41,28 @@ async function tryPromoteNextSlate(slateId: string, leagueId: string) {
 // POST /api/cron/sync-scores
 // ---------------------------------------------------------------------------
 
-export async function POST(request: Request) {
-  // Auth: shared secret sent in the x-cron-secret header by Vercel Cron.
+// Vercel Cron invokes cron paths with GET and authenticates with an
+// `Authorization: Bearer <CRON_SECRET>` header — it cannot send custom
+// headers. The x-cron-secret header is kept for manual/scripted invocation.
+function isAuthorized(request: Request): boolean {
   const cronSecret = process.env.CRON_SECRET;
-  const headerSecret = request.headers.get("x-cron-secret");
+  if (!cronSecret) return false;
+  return (
+    request.headers.get("x-cron-secret") === cronSecret ||
+    request.headers.get("authorization") === `Bearer ${cronSecret}`
+  );
+}
 
-  if (!cronSecret || !headerSecret || headerSecret !== cronSecret) {
+export async function GET(request: Request) {
+  return syncScores(request);
+}
+
+export async function POST(request: Request) {
+  return syncScores(request);
+}
+
+async function syncScores(request: Request) {
+  if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

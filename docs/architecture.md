@@ -47,8 +47,10 @@ NextAuth v4 with the Prisma adapter. Sessions are stored in the database via the
 - Route handler at `app/api/auth/[...nextauth]/route.ts`
 - Session type augmented in `lib/auth-types.d.ts` to expose `user.id`
 - Email magic-link sign-in via SMTP (no passwords, no OAuth)
-- SMTP delivery uses `nodemailer`; requires `EMAIL_SERVER_*` and `EMAIL_FROM` env vars
-- Custom sign-in page at `/login`, verification page at `/login/verify`
+- SMTP delivery uses `nodemailer`; requires `EMAIL_SERVER_*` and `EMAIL_FROM` env vars. TLS mode is derived from the port (465 = implicit TLS, otherwise STARTTLS) and certificate verification is strict. Dev machines whose antivirus intercepts TLS (e.g. Norton Web/Mail Shield) can set `EMAIL_ALLOW_INTERCEPTED_TLS=true` locally — the flag is ignored when `NODE_ENV=production`.
+- Custom sign-in page at `/login`, verification page at `/login/verify`. The login page honors a relative-path `callbackUrl` query param (used by join links).
+- Magic-link requests (`POST /api/auth/signin/email`) are rate limited in the catch-all route handler: 3 per email + 10 per IP per 15 minutes (in-memory `lib/rate-limit.ts`); over-limit requests get 429 + `Retry-After`.
+- Shareable join links: `/join/[code]` auto-joins signed-in visitors via the join API and routes signed-out visitors through `/login?callbackUrl=/join/[code]`.
 
 ## Data Model Overview
 
@@ -83,6 +85,10 @@ League admins for NFL and NCAAF leagues can create slates automatically from ESP
 
 All three endpoints require league admin role. The preview step upserts `SportGame` rows using ESPN game IDs as idempotency keys (same pattern as `/sync-espn`). Season inference logic lives in `lib/football.ts` (`inferFootballSeason`): Aug–Dec maps to the current year, Jan–Jul maps to the prior year. Slate names follow the convention `"[League Name] – Week [N]"` (en-dash U+2013).
 
+## E2E testing
+
+Playwright specs live in `e2e/` (`smoke.test.ts` for public pages, `critical-path.test.ts` for the join → pick → score → leaderboard flow). Auth is seeded directly in the database — a `User` plus `Session` row and the `next-auth.session-token` cookie — because magic-link email delivery is out of scope for automation. DB seeding/teardown runs through `e2e/helpers/db-cli.ts` in a `tsx` child process (Playwright's transpiler cannot load the generated TypeScript Prisma client in-process). The local run auto-starts `npm run dev` (see `playwright.config.ts`); in CI, point `PLAYWRIGHT_BASE_URL` at a running server.
+
 ## Cron jobs
 
-Background score-sync runs via Vercel Cron, which calls `POST /api/cron/sync-scores` on a schedule. The endpoint is authenticated with an `x-cron-secret` header (checked against the `CRON_SECRET` env var). The endpoint is idempotent — safe to call multiple times; it always returns `200` even when there is nothing to update, to prevent Vercel retry loops.
+Background score-sync runs via Vercel Cron, which calls `GET /api/cron/sync-scores` on a schedule with an `Authorization: Bearer <CRON_SECRET>` header (Vercel sends the bearer header automatically when a `CRON_SECRET` env var exists; it cannot send custom headers). The route also accepts `POST` with an `x-cron-secret` header for manual/scripted invocation. The endpoint is idempotent — safe to call multiple times; it always returns `200` even when there is nothing to update, to prevent Vercel retry loops.

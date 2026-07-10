@@ -55,7 +55,7 @@ See [phase-6.md](phase-6.md) for full goals, tasks, and current status.
 - **6B -- NCAAF Auto-Slates (complete)** -- conference filtering on top of the NFL auto-slate flow
 - **6C -- Other Sports (planned)** -- NBA/MLB/NHL/NCAAB need a date-range or tournament-based slate model; open product questions, not started
 
-## Phase 7 -- Friends Test Readiness (planned)
+## Phase 7 -- Friends Test Readiness (in progress -- code tasks complete, manual/account setup pending)
 
 See [phase-7.md](phase-7.md) for full goals, tasks, and current status.
 

@@ -1,6 +1,8 @@
 # Phase 7 — Friends Test Readiness
 
-**Status: Planned**
+**Status: In progress — all code tasks complete (3-code, 5, 6-code, 7, 8); remaining tasks are manual/account operations (1, 2, 3-Resend, 4, 6-alerting, 9)**
+
+> **👉 Step-by-step instructions for all remaining manual work: [launch-guide.md](launch-guide.md)**
 
 ## Overview
 
@@ -46,10 +48,10 @@ Phase 7 gets LockHub from "runs on my laptop" to "a small group of real friends 
 
 ### 3. Fix SMTP TLS + verify sending domain
 
-**Status: Not started**
+**Status: Code complete — Resend domain verification pending (needs Task 1)**
 **Depends on:** Task 1 (domain, for Resend verification)
 
-- Root-cause the cert error that led to `tls: { rejectUnauthorized: false }` in `lib/auth.ts` (most likely an EMAIL_SERVER_PORT/STARTTLS mismatch — e.g. port 465 implicit-TLS vs port 587 STARTTLS options being mixed). Fix properly; remove the verification bypass.
+- ~~Root-cause the cert error that led to `tls: { rejectUnauthorized: false }` in `lib/auth.ts`~~ **Done.** Root cause was not a port/STARTTLS mismatch: Norton's Web/Mail Shield intercepts TLS on the dev machine and re-signs `smtp.resend.com`'s cert with an untrusted root. Bypass removed; `secure` now derived from port. Dev-only escape hatch `EMAIL_ALLOW_INTERCEPTED_TLS=true` (ignored in production) available until Norton's email scanning is disabled locally.
 - Verify the purchased domain in Resend; update `EMAIL_FROM` to use it instead of the `onboarding@resend.dev` sandbox sender.
 - Manually test: request a magic link to an external (non-account-owner) email address and confirm delivery.
 
@@ -73,7 +75,7 @@ Phase 7 gets LockHub from "runs on my laptop" to "a small group of real friends 
 
 ### 5. Rate limit the magic-link request endpoint
 
-**Status: Not started**
+**Status: Complete** — 3/email + 10/IP per 15 min on `POST /api/auth/signin/email`; login page surfaces the 429 inline. A friend re-requesting a link once or twice stays well under the limit.
 
 - Apply the existing `lib/rate-limit.ts` limiter to the sign-in / magic-link request route (NextAuth's email provider request endpoint), matching the pattern already used on picks/auto-preview/sync-espn (a few requests per email or IP per 15 minutes).
 - Confirm legitimate sign-in flows aren't tripped by normal use (e.g. a friend requesting a link, not receiving it fast enough, requesting again once).
@@ -85,7 +87,7 @@ Phase 7 gets LockHub from "runs on my laptop" to "a small group of real friends 
 
 ### 6. Error monitoring (Sentry)
 
-**Status: Not started**
+**Status: Instrumentation complete (server/edge/client, commit 9b19d02) — email alerting setup in the Sentry dashboard still pending**
 
 - Add Sentry (free tier) to the Next.js app — server, edge, and client instrumentation.
 - Confirm errors from API routes and the cron job are captured with useful context (route, user/league where available).
@@ -97,7 +99,7 @@ Phase 7 gets LockHub from "runs on my laptop" to "a small group of real friends 
 
 ### 7. E2E coverage for the critical path
 
-**Status: Not started**
+**Status: Complete** — `e2e/critical-path.test.ts` (6 serial tests): invite-link login carry-through, join via link, re-join redirect, pick submission + persistence, admin score recording + slate promotion, leaderboard result. DB seeding via `e2e/helpers/db-cli.ts` (tsx child process).
 
 - Extend the Playwright suite beyond the current smoke test to cover: join a league (via invite code) → submit a pick → admin records a game score → leaderboard reflects the result.
 - Magic-link click-through stays out of scope for automation (real email); seed/auth state directly for these tests instead.
@@ -109,7 +111,7 @@ Phase 7 gets LockHub from "runs on my laptop" to "a small group of real friends 
 
 ### 8. Shareable join link
 
-**Status: Not started**
+**Status: Complete** — `/join/[code]` auto-joins signed-in users (or carries the code through sign-in via `callbackUrl`); league settings shows a copyable join URL next to the raw code; join 409 now returns `leagueId` for the already-member redirect.
 
 - Add a `/join/[code]` page that reads the invite code from the URL and either auto-submits the join request (if signed in) or carries the code through sign-in and auto-submits after.
 - Update the league settings/invite UI to surface this link (e.g. "Copy invite link") alongside the raw code.

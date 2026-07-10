@@ -26,7 +26,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { POST } from "../route";
+import { GET, POST } from "../route";
 import { prisma } from "@/lib/db";
 import { fetchESPNScoreboard, fetchESPNSchedule } from "@/lib/espn";
 
@@ -148,6 +148,44 @@ describe("POST /api/cron/sync-scores — auth", () => {
     delete process.env.CRON_SECRET;
     const res = await POST(makeRequest(CRON_SECRET));
     expect(res.status).toBe(401);
+  });
+});
+
+// Vercel Cron invokes cron paths with GET + `Authorization: Bearer <secret>`
+// (custom headers like x-cron-secret cannot be configured on Vercel crons).
+describe("GET /api/cron/sync-scores — Vercel Cron invocation", () => {
+  function makeVercelCronRequest(authorization?: string) {
+    const headers: Record<string, string> = {};
+    if (authorization !== undefined) headers["authorization"] = authorization;
+    return new Request("http://localhost/api/cron/sync-scores", {
+      method: "GET",
+      headers,
+    });
+  }
+
+  it("accepts GET with a valid Authorization: Bearer header", async () => {
+    const res = await GET(makeVercelCronRequest(`Bearer ${CRON_SECRET}`));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ synced: 0, updated: 0, sports: [] });
+  });
+
+  it("returns 401 on GET with a wrong bearer token", async () => {
+    const res = await GET(makeVercelCronRequest("Bearer wrong-secret"));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 401 on GET with no Authorization header", async () => {
+    const res = await GET(makeVercelCronRequest());
+    expect(res.status).toBe(401);
+  });
+
+  it("accepts POST with Authorization: Bearer as well", async () => {
+    const req = new Request("http://localhost/api/cron/sync-scores", {
+      method: "POST",
+      headers: { authorization: `Bearer ${CRON_SECRET}` },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
   });
 });
 
