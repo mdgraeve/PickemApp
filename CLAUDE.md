@@ -6,6 +6,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 After making any code changes, update the relevant files in `docs/` to reflect those changes — including `changelog.md` (add an entry describing what changed and why) and any of `architecture.md`, `product-brief.md`, or `roadmap.md` that are affected.
 
+## Sensitive operations policy
+
+This project is moving toward a real production deployment serving real users (friends), so a set of operations are off-limits for Claude to perform directly — even when technically possible. `.claude/settings.json` enforces the hard cases below with `deny` rules that hold regardless of what any local `settings.local.json` allows. Don't try to work around a denial (e.g. by rewriting the command differently, or writing the secret to a different file) — treat a denial as a hard boundary and follow the handoff behavior below.
+
+**What's sensitive:**
+1. **Real secret values** — never read, print, or write actual values into `.env`, `.env.production`, `.env.local`, `.env.sentry-build-plugin`, or `.mcp.json`. Discussing variable *names*, or editing a `.env.example`-style template with placeholder values, is fine and not restricted.
+2. **Production database writes** — `prisma migrate deploy`, `prisma db push`, `prisma db execute`, or any raw SQL intended for the production database. Local/dev Prisma commands (`migrate dev`, `generate`, `studio`, `db seed`) are unrestricted.
+3. **Pushing to `main`** — once Vercel is connected to this repo, a push to `main` triggers a production deploy. Pushes to feature branches are fine.
+4. **Vercel production actions** — plan/billing changes, production environment variables, domain configuration (`vercel env`, `vercel --prod`, `vercel deploy --prod`, `vercel domains`, `vercel project`).
+5. **Namecheap DNS records and account settings.**
+6. **Resend domain verification / API key management.**
+7. **Sentry account or project creation, DSN retrieval.**
+8. **Any purchase or billing action**, on any service.
+
+**How to handle it when a task touches one of these:**
+- **Mode A (work around it):** If the rest of the task doesn't actually depend on the sensitive step, do everything else and hand off just that piece — give exact values/commands/dashboard locations for the user to execute themselves, then treat the task as done pending that manual step.
+- **Mode B (stop and resume):** If the sensitive step is a hard blocking dependency (nothing further can be verified or built without it), stop there, explain exactly what's needed and why, give precise step-by-step instructions, and wait for the user to confirm it's done before resuming the rest of the task.
+
+Either way: be explicit about *which* mode applies and *why*, don't guess at values on the user's behalf, and don't ask the user to paste secret values back into the chat — point them to where to enter them directly (Vercel dashboard, Resend dashboard, etc.).
+
 ## Commands
 
 ```bash

@@ -16,6 +16,7 @@ node_modules
 
 # testing
 /coverage
+/test-results
 
 # misc
 .DS_Store
@@ -36,3 +37,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Sentry Config File
+.env.sentry-build-plugin
+
+# Claude Code — personal/local settings and runtime state (settings.json IS committed)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
