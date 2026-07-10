@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-10 (Add Sentry error monitoring)
+
+**Why:** Phase 7 (friends test readiness) requires visibility into production errors without relying on friends to report bugs. Added via Sentry's Next.js setup wizard, with tunnel routing so ad-blockers don't silently drop client-side error reports.
+
+**`next.config.ts`**: Wrapped config with `withSentryConfig`; `tunnelRoute: "/monitoring"` routes browser-side error reports through the app's own domain instead of directly to Sentry's ingest endpoint, which ad-blockers commonly block.
+
+**`instrumentation.ts`, `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`** *(new)*: Sentry SDK initialization for the server, edge, and client runtimes.
+
+**`app/global-error.tsx`** *(new)*: Root error boundary that reports uncaught React render errors to Sentry.
+
+**`package.json`**: Added `@sentry/nextjs`.
+
 ## 2026-04-11 (Fix: slate promotion stuck when games lack espnGameId or cron missed past-date completions)
 
 **Why:** Three compounding bugs prevented the MLB slate from promoting: (1) Games created from SportGame records that were missing `espnId` at creation time have `espnGameId = null`, so the cron's primary ID-based lookup returns nothing and those games stay "scheduled" forever, blocking the promotion count check. (2) The past-date deduplication merged today's potentially stale "in_progress" status over yesterday's correct "completed" status. (3) No admin escape hatch existed to manually complete a stuck slate.
