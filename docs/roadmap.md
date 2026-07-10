@@ -39,10 +39,31 @@ See [phase-4.md](phase-4.md) for full goals, tasks, and current status.
 - **Empty states** — actionable copy and CTAs replacing bare empty messages
 - **Team logos** — ESPN CDN logos on game cards (NFL, NBA, MLB, NHL, NCAAF, NCAAB)
 
-## Phase 5 -- Sports Data Integration
+## Phase 5 -- Sports Data Integration (complete)
 
 See [phase-5.md](phase-5.md) for full goals, tasks, and current status.
 
 - Automatic schedule import from ESPN API (replaces manual seed script)
 - Automatic score sync via cron job (eliminates manual result entry)
 - ESPN game ID stored on SportGame for reliable score matching
+
+## Phase 6 -- Auto-Slate & Smart Scheduling (6A/6B complete, 6C planned)
+
+See [phase-6.md](phase-6.md) for full goals, tasks, and current status.
+
+- **6A -- NFL Auto-Slates (complete)** -- pull a full ESPN week of games into a slate in one click
+- **6B -- NCAAF Auto-Slates (complete)** -- conference filtering on top of the NFL auto-slate flow
+- **6C -- Other Sports (planned)** -- NBA/MLB/NHL/NCAAB need a date-range or tournament-based slate model; open product questions, not started
+
+## Phase 7 -- Friends Test Readiness (planned)
+
+See [phase-7.md](phase-7.md) for full goals, tasks, and current status.
+
+- Production deployment on Vercel Pro with a purchased domain
+- Verified email sending domain + proper SMTP TLS fix (removes the `rejectUnauthorized: false` bypass)
+- Separate production database, isolated from dev
+- Rate limiting on the magic-link sign-in endpoint
+- Sentry error monitoring
+- E2E coverage for the join → pick → score → leaderboard critical path
+- Shareable league join links
+- Target: preseason soft-launch (~August 2026) with two leagues (NFL, NCAAF) for 10-15 friends
